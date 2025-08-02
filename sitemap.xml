@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+<url>
+  <loc>https://www.VOTRE-DOMAINE.com/</loc>
+  <priority>1.00</priority>
+</url>
+<url>
+  <loc>https://www.VOTRE-DOMAINE.com/a-propos.html</loc>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.VOTRE-DOMAINE.com/contact.html</loc>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.VOTRE-DOMAINE.com/politique.html</loc>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.VOTRE-DOMAINE.com/culture.html</loc>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.VOTRE-DOMAINE.com/technologie.html</loc>
+  <priority>0.80</priority>
+</url>
+<url>
+    <loc>https://www.VOTRE-DOMAINE.com/articles/tension-a-gaza.html</loc>
+    <priority>0.64</priority>
+</url>
+
+</urlset>
