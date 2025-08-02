@@ -6,31 +6,31 @@
             http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
 
 <url>
-  <loc>https://www.VOTRE-DOMAINE.com/</loc>
+  <loc>http://horizon-libre.net/</loc>
   <priority>1.00</priority>
 </url>
 <url>
-  <loc>https://www.VOTRE-DOMAINE.com/a-propos.html</loc>
+  <loc>http://horizon-libre.net/a-propos.html</loc>
   <priority>0.80</priority>
 </url>
 <url>
-  <loc>https://www.VOTRE-DOMAINE.com/contact.html</loc>
+  <loc>http://horizon-libre.net/contact.html</loc>
   <priority>0.80</priority>
 </url>
 <url>
-  <loc>https://www.VOTRE-DOMAINE.com/politique.html</loc>
+  <loc>http://horizon-libre.net/politique.html</loc>
   <priority>0.80</priority>
 </url>
 <url>
-  <loc>https://www.VOTRE-DOMAINE.com/culture.html</loc>
+  <loc>http://horizon-libre.net/culture.html</loc>
   <priority>0.80</priority>
 </url>
 <url>
-  <loc>https://www.VOTRE-DOMAINE.com/technologie.html</loc>
+  <loc>http://horizon-libre.net/technologie.html</loc>
   <priority>0.80</priority>
 </url>
 <url>
-    <loc>https://www.VOTRE-DOMAINE.com/articles/tension-a-gaza.html</loc>
+    <loc>http://horizon-libre.net/articles/tension-a-gaza.html</loc>
     <priority>0.64</priority>
 </url>
 
