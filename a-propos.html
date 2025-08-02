@@ -18,33 +18,49 @@
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-    <header class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-2">
-                <div class="flex items-center">
-                    <a href="/" title="Accueil - L'Horizon Libre">
-                         <svg class="h-14 sm:h-16 w-auto" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
-                            <defs><style> .serif-final { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 20px; fill: #111827;} </style></defs>
-                            <rect y="50" width="200" height="4" fill="#1E40AF"/>
-                            <circle cx="100" cy="50" r="30" fill="#B91C1C"/>
-                            <g transform="translate(100, 50) scale(0.5) translate(-55, -55)">
-                                <path d="M 10 85 Q 55 100 85 25 Q 70 50 50 55 Q 25 75 10 85 Z" fill="white"/>
-                                <path d="M 78 32 Q 95 25 95 15 L 85 25 Z" fill="#1E40AF"/>
-                            </g>
-                            <text x="50" y="85" class="serif-final">L'Horizon Libre</text>
-                        </svg>
-                    </a>
-                </div>
-                <nav class="hidden md:flex items-center space-x-8">
-                    <a href="/" class="text-gray-600 hover:text-blue-800 transition">Accueil</a>
-                    <a href="/politique.html" class="text-gray-600 hover:text-blue-800 transition">Politique</a>
-                    <a href="/culture.html" class="text-gray-600 hover:text-blue-800 transition">Culture</a>
-                    <a href="/technologie.html" class="text-gray-600 hover:text-blue-800 transition">Tech</a>
-                    <a href="/a-propos.html" class="text-blue-800 font-bold hover:text-blue-800 transition">À Propos</a>
-                </nav>
+<header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center py-2">
+            <div class="flex items-center">
+                <a href="/" title="Accueil - L'Horizon Libre">
+                    <svg class="h-14 sm:h-16 w-auto" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs><style> .serif-final { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 20px; fill: #111827;} </style></defs>
+                        <rect y="50" width="200" height="4" fill="#1E40AF"/>
+                        <circle cx="100" cy="50" r="30" fill="#B91C1C"/>
+                        <g transform="translate(100, 50) scale(0.5) translate(-55, -55)">
+                            <path d="M 10 85 Q 55 100 85 25 Q 70 50 50 55 Q 25 75 10 85 Z" fill="white"/>
+                            <path d="M 78 32 Q 95 25 95 15 L 85 25 Z" fill="#1E40AF"/>
+                        </g>
+                        <text x="50" y="85" class="serif-final">L'Horizon Libre</text>
+                    </svg>
+                </a>
+            </div>
+            <nav class="hidden md:flex items-center space-x-8">
+                <a href="/" class="text-gray-600 hover:text-blue-800 transition">Accueil</a>
+                <a href="/politique.html" class="text-gray-600 hover:text-blue-800 transition">Politique</a>
+                <a href="/culture.html" class="text-gray-600 hover:text-blue-800 transition">Culture</a>
+                <a href="/technologie.html" class="text-gray-600 hover:text-blue-800 transition">Tech</a>
+                <a href="/a-propos.html" class="text-gray-600 hover:text-blue-800 transition">À Propos</a>
+                <a href="/contact.html" class="text-blue-800 font-bold hover:text-blue-800 transition">Contact</a>
+            </nav>
+            <div>
+                <a href="#newsletter" class="bg-blue-800 text-white px-4 py-2 rounded-lg hover:bg-blue-900 transition text-sm font-semibold">Newsletter</a>
+            </div>
+            <div class="md:hidden">
+                <button id="menu-btn" class="text-gray-600 hover:text-blue-800 focus:outline-none"><i data-feather="menu"></i></button>
             </div>
         </div>
-    </header>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden">
+        <a href="/" class="block py-2 px-4 text-sm text-gray-600 hover:bg-gray-100">Accueil</a>
+        <a href="/politique.html" class="block py-2 px-4 text-sm text-gray-600 hover:bg-gray-100">Politique</a>
+        <a href="/culture.html" class="block py-2 px-4 text-sm text-gray-600 hover:bg-gray-100">Culture</a>
+        <a href="/technologie.html" class="block py-2 px-4 text-sm text-gray-600 hover:bg-gray-100">Tech</a>
+        <a href="/a-propos.html" class="block py-2 px-4 text-sm text-gray-600 hover:bg-gray-100">À Propos</a>
+        <a href="/contact.html" class="block py-2 px-4 text-sm text-gray-600 hover:bg-gray-100">Contact</a>
+        <a href="#newsletter" class="block py-2 px-4 text-sm text-gray-600 hover:bg-gray-100">Newsletter</a>
+    </div>
+</header>
 
     <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div class="max-w-3xl mx-auto">
