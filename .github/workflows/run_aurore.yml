@@ -6,8 +6,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  generate-article:
     runs-on: ubuntu-latest
+    strategy:
+      # Crée une matrice de jobs. Un job sera lancé pour chaque source.
+      matrix:
+        source: [ 'reuters', 'bbc-news', 'associated-press', 'al-jazeera-english', 'le-monde' ]
+    
     steps:
       - name: Checkout du code du site
         uses: actions/checkout@v3
@@ -26,9 +31,12 @@ jobs:
       - name: Installation des dépendances
         run: pip install -r aurore-script/netlify/functions/aurore/requirements.txt
 
-      - name: Exécution d'Aurore
+      - name: Exécution d'Aurore pour la source ${{ matrix.source }}
         env:
-          # --- Secrets à configurer dans les paramètres du dépôt ---
+          # On passe la source du job actuel au script
+          NEWS_SOURCE: ${{ matrix.source }}
+          
+          # Secrets à configurer dans les paramètres du dépôt
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AURORE_GITHUB_TOKEN: ${{ secrets.AURORE_GITHUB_TOKEN }}
