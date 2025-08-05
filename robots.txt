@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: http://horizon-libre.net/sitemap.xml
+Sitemap: https://www.horizon-libre.net/sitemap.xml
