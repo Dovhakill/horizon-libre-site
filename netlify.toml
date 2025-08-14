@@ -2,6 +2,6 @@
   publish = "."
   functions = "netlify/functions"
 
-[functions]]
+[functions]
   path = "blobs-proxy/*"
   function = "blobs-proxy"
