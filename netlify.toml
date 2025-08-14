@@ -1,8 +1,8 @@
-# Configuration Netlify pour le site horizon-libre-site
+# Fichier : horizon-libre-site/netlify.toml
+# Configuration pour un site simple en HTML/CSS/JS sans étape de build.
 
 [build]
-  # Indique à Netlify le dossier à mettre en ligne.
-  # La valeur "." signifie la racine de ton projet.
-  # Si ton fichier index.html est dans un dossier "public" ou "dist",
-  # tu devras remplacer "." par "public" ou "dist".
+  # Indique à Netlify que le dossier à publier est la racine du projet.
+  # Si ton fichier index.html est dans un autre dossier (comme "public"),
+  # il faudra changer "." par "public".
   publish = "."
