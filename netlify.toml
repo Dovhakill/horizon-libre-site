@@ -1,0 +1,7 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[functions]]
+  path = "blobs-proxy/*"
+  function = "blobs-proxy"
