@@ -95,6 +95,7 @@
                 <div class="order-2 lg:order-1">
                     <span class="text-sm font-semibold text-blue-800 uppercase">Actualité</span>
                     <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mt-2 mb-4 leading-tight">{{ articles[0].title }}</h1>
+                    <p class="text-lg text-gray-600 mb-6">Analyse du nouvel accord migratoire entre le Royaume-Uni et la France, qui prévoit le retour de migrants traversant la Manche...</p>
                     <a href="article/{{ articles[0].filename }}" class="inline-flex items-center text-blue-800 font-semibold group">
                         Lire l'analyse
                         <i data-feather="arrow-right" class="ml-2 w-4 h-4 transform group-hover:translate-x-1 transition-transform"></i>
@@ -122,7 +123,7 @@
                     </div>
                 </div>
                 {% else %}
-                <p>Aucun article à afficher pour le moment.</p>
+                <p class="col-span-full">Aucun article à afficher pour le moment.</p>
                 {% endfor %}
                 
             </div>
