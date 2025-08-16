@@ -1,0 +1,14 @@
+... (ton code html existant) ...
+    <main>
+        <h1>Articles Récents</h1>
+        <ul>
+            {% for article in articles %}
+                <li>
+                    <a href="{{ ARTICLES_DIR }}/{{ article.filename }}">{{ article.title }}</a>
+                </li>
+            {% else %}
+                <li>Aucun article pour le moment.</li>
+            {% endfor %}
+        </ul>
+    </main>
+    ... (le reste de ton code) ...
