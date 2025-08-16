@@ -1,14 +1,68 @@
-... (ton code html existant) ...
-    <main>
-        <h1>Articles Récents</h1>
-        <ul>
-            {% for article in articles %}
-                <li>
-                    <a href="{{ ARTICLES_DIR }}/{{ article.filename }}">{{ article.title }}</a>
-                </li>
-            {% else %}
-                <li>Aucun article pour le moment.</li>
-            {% endfor %}
-        </ul>
-    </main>
-    ... (le reste de ton code) ...
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L'Horizon Libre - Média Indépendant d'Actualité</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23B91C1C' stroke='%23111827' stroke-width='2'/%3E%3Cg transform='translate(50, 50) scale(0.65) translate(-55, -55)'%3E%3Cpath d='M 10 85 Q 55 100 85 25 Q 70 50 50 55 Q 25 75 10 85 Z' fill='white'/%3E%3Cpath d='M 78 32 Q 95 25 95 15 L 85 25 Z' fill='%231E40AF'/%3E%3C/g%3E%3C/svg%3E">
+    <meta name="description" content="L'Horizon Libre est un média 100% indépendant qui propose des analyses, enquêtes et reportages sur l'actualité politique, culturelle et technologique.">
+    <meta property="og:title" content="L'Horizon Libre - Média Indépendant d'Actualité">
+    <meta property="og:description" content="Analyses, enquêtes et reportages pour une information libre et approfondie.">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?q=80&w=1200&auto=format&fit=crop">
+    <meta property="og:url" content="https://www.horizon-libre.net">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-KN8B3GGL');</script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2739433982231142"
+     crossorigin="anonymous"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons" integrity="sha384-2TRCMh6r4I2I2yT3zH24sL4u/1B2s27X2I4gr35M900VvDbYy1Cm4L2I3e1v7fM" crossorigin="anonymous"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {'analytics_storage': 'denied'});
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
+        .article-card-img { height: 12rem; width: 100%; object-fit: cover; }
+        #cookie-consent-banner { position: fixed; bottom: 0; left: 0; right: 0; background-color: #1f2937; color: white; padding: 1rem; z-index: 1000; display: none; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+        #back-to-top { position: fixed; bottom: 20px; right: 20px; display: none; background-color: #1E40AF; color: white; padding: 0.75rem; border-radius: 9999px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); transition: opacity 0.3s, transform 0.3s; z-index: 50; }
+        #back-to-top:hover { transform: scale(1.1); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KN8B3GGL"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-2">
+                <div class="flex items-center">
+                    <a href="/" title="Accueil - L'Horizon Libre">
+                        <svg class="h-14 sm:h-16 w-auto" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+                            <defs><style> .serif-final { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 20px; fill: #111827;} </style></defs>
+                            <rect y="50" width="200" height="4" fill="#1E40AF"/>
+                            <circle cx="100" cy="50" r="30" fill="#B91C1C"/>
+                            <g transform="translate(100, 50) scale(0.5) translate(-55, -55)">
+                                <path d="M 10 85 Q 55 100 85 25 Q 70 50 50 55 Q 25 75 10 85 Z" fill="white"/>
+                                <path d="M 78 32 Q 95 25 95 15 L 85 25 Z" fill="#1E40AF"/>
+                            </g>
+                            <text x="50" y="85" class="serif-final">L'Horizon Libre</text>
+                        </svg>
+                    </a>
+                </div>
+                <nav class="hidden md:flex items-center space-x-8">
+                    <a href="/" class="text-blue-800 font-bold hover:text-blue-800 transition">Accueil</a>
+                    <a href="/politique.html" class="text-gray-600 hover:text-blue-800 transition">Politique</a>
+                    <a href="/culture.html" class="text-gray-600 hover:text-blue-800 transition">Culture</a>
+                    <a href="/technologie.html" class="text-gray-600 hover:text-blue-800 transition">Tech</a>
+                    <a href="/a-propos.html" class="text-gray-600 hover:text-blue-800 transition">À Propos</a>
+                    <a href="/contact.html" class="text-gray-600 hover:text-blue-800 transition">Contact</a>
