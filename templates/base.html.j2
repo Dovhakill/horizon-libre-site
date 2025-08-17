@@ -13,14 +13,11 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .article-card-img { height: 12rem; width: 100%; object-fit: cover; }
-        /* Règle pour contrôler la taille de l'image dans l'article */
         figure img {
-            max-height: 500px;
+            max-height: 500px; /* Hauteur maximale pour l'image d'un article */
             width: 100%;
             object-fit: cover;
-            margin-left: auto;
-            margin-right: auto;
-            border-radius: 0.5rem;
+            margin: auto;
         }
     </style>
 </head>
@@ -37,6 +34,7 @@
                     <a href="/a-propos.html" class="text-gray-600 hover:text-blue-800 transition">À Propos</a>
                     <a href="/contact.html" class="text-gray-600 hover:text-blue-800 transition">Contact</a>
                 </nav>
+                <div><a href="#newsletter" class="bg-blue-800 text-white px-4 py-2 rounded-lg hover:bg-blue-900 transition text-sm font-semibold">Newsletter</a></div>
             </div>
         </div>
     </header>
@@ -47,37 +45,12 @@
 
     <footer id="footer" class="bg-gray-800 text-gray-300 mt-16">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
-                <div class="col-span-1 md:col-span-2">
-                    <h3 class="text-xl font-bold text-white">L'Horizon Libre</h3>
-                    <p class="mt-4 text-gray-400">Un média 100% indépendant, propulsé par une IA et financé par ses lecteurs.</p>
-                </div>
-                <div>
-                    <h4 class="font-semibold text-white uppercase tracking-wider">Navigation</h4>
-                    <ul class="mt-4 space-y-2">
-                        <li><a href="/a-propos.html" class="hover:text-white transition">À Propos</a></li>
-                        <li><a href="/contact.html" class="hover:text-white transition">Contact</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold text-white uppercase tracking-wider">Légal</h4>
-                    <ul class="mt-4 space-y-2">
-                        <li><a href="/mentions-legales.html" class="hover:text-white transition">Mentions légales</a></li>
-                        <li><a href="/politique-confidentialite.html" class="hover:text-white transition">Confidentialité</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="mt-8 border-t border-gray-700 pt-8 flex justify-between items-center">
-                <p class="text-sm text-gray-500">&copy; {{ current_year }} {{ site_name }}. Tous droits réservés.</p>
-                <div class="flex space-x-4 mt-4 sm:mt-0">
-                    <a href="#" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white" title="Twitter / X"><i data-feather="twitter"></i></a>
-                </div>
+            <div class="text-center">
+                <p>&copy; 2025 L'Horizon Libre. Tous droits réservés.</p>
             </div>
         </div>
     </footer>
     
-    <script>
-        feather.replace();
-    </script>
+    <script>feather.replace();</script>
 </body>
 </html>
