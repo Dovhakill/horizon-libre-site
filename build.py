@@ -13,9 +13,7 @@ except locale.Error:
 ARTICLES_DIR = "article"
 TEMPLATES_DIR = "templates"
 OUTPUT_DIR = "public"
-STATIC_ASSETS = ["img"]
-SIMPLE_PAGES = ["a-propos", "contact", "mentions-legales", "politique-confidentialite", "charte-verification"]
-CATEGORIES = ["politique", "culture", "technologie", "international"]
+STATIC_ASSETS = ["img", "politique.html", "culture.html", "technologie.html", "a-propos.html", "contact.html"]
 
 def get_article_details(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -27,17 +25,12 @@ def get_article_details(file_path):
         date_human = date_obj.strftime("%d %B %Y")
         image_tag = soup.select_one('article figure img')
         image_url = (image_tag['src'] if image_tag else "https://placehold.co/600x400/1E3A8A/FFFFFF?text=Aurore")
-        category_tag = soup.find('meta', attrs={'name': 'keywords'})
-        category = "International"
-        if category_tag and category_tag.get('content'):
-            first_keyword = category_tag['content'].split(',')[0].strip().lower()
-            if first_keyword in CATEGORIES:
-                category = first_keyword
-        return {"title": title, "filename": os.path.basename(file_path), "date_iso": date_iso, "date_human": date_human, "image_url": image_url, "category": category}
+        return {"title": title, "filename": os.path.basename(file_path), "date_iso": date_iso, "date_human": date_human, "image_url": image_url}
 
 def main():
     print("Début de la construction du site...")
-    if os.path.exists(OUTPUT_DIR): shutil.rmtree(OUTPUT_DIR)
+    if os.path.exists(OUTPUT_DIR):
+        shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR)
 
     for asset in STATIC_ASSETS:
@@ -45,53 +38,32 @@ def main():
         if os.path.exists(source_path):
             dest_path = os.path.join(OUTPUT_DIR, asset)
             (shutil.copytree(source_path, dest_path) if os.path.isdir(source_path) else shutil.copy2(source_path, dest_path))
+            print(f"Asset '{asset}' copié.")
 
     all_articles = []
-    if os.path.exists(ARTICLES_DIR):
+    source_articles_dir = ARTICLES_DIR
+    if os.path.exists(source_articles_dir):
         dest_articles_dir = os.path.join(OUTPUT_DIR, ARTICLES_DIR)
         os.makedirs(dest_articles_dir, exist_ok=True)
-        for filename in os.listdir(ARTICLES_DIR):
+        for filename in os.listdir(source_articles_dir):
             if filename.endswith(".html"):
-                shutil.copy2(os.path.join(ARTICLES_DIR, filename), dest_articles_dir)
-                details = get_article_details(os.path.join(ARTICLES_DIR, filename))
+                shutil.copy2(os.path.join(source_articles_dir, filename), dest_articles_dir)
+                details = get_article_details(os.path.join(source_articles_dir, filename))
                 all_articles.append(details)
+
     all_articles.sort(key=lambda x: x['date_iso'], reverse=True)
+    print(f"{len(all_articles)} articles trouvés au total.")
+    
+    # --- LOGIQUE DE PAGINATION ---
+    articles_for_homepage = all_articles[:9]
+    print(f"Affichage des {len(articles_for_homepage)} articles les plus récents sur la page d'accueil.")
     
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-    
-    context = {
-        "current_year": datetime.now().year,
-        "site_name": "L'Horizon Libre"
-    }
-
-    articles_for_homepage = all_articles[:9]
-    index_template = env.get_template('index.html.j2')
-    index_html = index_template.render(articles=articles_for_homepage, **context)
+    template = env.get_template('index.html.j2')
+    html_content = template.render(articles=articles_for_homepage)
     with open(os.path.join(OUTPUT_DIR, 'index.html'), 'w', encoding='utf-8') as f:
-        f.write(index_html)
-    print("Page d'accueil générée.")
-
-    articles_by_category = {cat: [] for cat in CATEGORIES}
-    for article in all_articles:
-        if article['category'] in articles_by_category:
-            articles_by_category[article['category']].append(article)
-    category_template = env.get_template("category.html.j2")
-    for category, articles_list in articles_by_category.items():
-        html_content = category_template.render(category_name=category, articles=articles_list, **context)
-        with open(os.path.join(OUTPUT_DIR, f'{category}.html'), 'w', encoding='utf-8') as f:
-            f.write(html_content)
-    print(f"- Pages catégories générées.")
-
-    for page_name in SIMPLE_PAGES:
-        try:
-            template = env.get_template(f"{page_name}.html.j2")
-            html_content = template.render(**context)
-            with open(os.path.join(OUTPUT_DIR, f'{page_name}.html'), 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            print(f"- Page simple '{page_name}.html' créée.")
-        except Exception as e:
-            print(f"ATTENTION: Template pour '{page_name}' manquant.")
-
+        f.write(html_content)
+    print("Page 'index.html' générée.")
     print("Construction du site terminée !")
 
 if __name__ == "__main__":
