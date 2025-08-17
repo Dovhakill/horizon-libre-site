@@ -8,14 +8,15 @@ import locale
 try:
     locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
 except locale.Error:
-    print("ATTENTION: Locale fr_FR.UTF-8 non trouvée, les dates pourraient être en anglais.")
     locale.setlocale(locale.LC_TIME, '')
 
 # --- Configuration ---
 ARTICLES_DIR = "article"
 TEMPLATES_DIR = "templates"
 OUTPUT_DIR = "public"
-STATIC_ASSETS = ["img", "politique.html", "culture.html", "technologie.html", "a-propos.html", "contact.html"]
+STATIC_ASSETS = ["img", "robots.txt", "sitemap.xml"]
+# On liste les templates des pages statiques à générer
+STATIC_PAGES = ["a-propos", "contact", "culture", "mentions-legales", "politique-confidentialite", "charte-verification", "politique", "technologie"]
 
 def get_article_details(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -54,16 +55,27 @@ def main():
                 all_articles.append(details)
 
     all_articles.sort(key=lambda x: x['date_iso'], reverse=True)
-    print(f"{len(all_articles)} articles trouvés au total.")
-    
     articles_for_homepage = all_articles[:9]
-    print(f"Affichage des {len(articles_for_homepage)} articles les plus récents sur la page d'accueil.")
     
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-    template = env.get_template('index.html.j2')
-    html_content = template.render(articles=articles_for_homepage)
+    
+    # --- SECTION AJOUTÉE : GÉNÉRATION DES PAGES STATIQUES ---
+    print("Génération des pages statiques...")
+    for page_name in STATIC_PAGES:
+        try:
+            template = env.get_template(f"{page_name}.html.j2")
+            html_content = template.render()
+            with open(os.path.join(OUTPUT_DIR, f'{page_name}.html'), 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            print(f"- Page '{page_name}.html' créée.")
+        except Exception:
+            print(f"ATTENTION: Le template pour la page '{page_name}.html.j2' n'a pas été trouvé, la page ne sera pas créée.")
+    
+    # Génération de la page d'accueil
+    template_index = env.get_template('index.html.j2')
+    html_content_index = template_index.render(articles=articles_for_homepage)
     with open(os.path.join(OUTPUT_DIR, 'index.html'), 'w', encoding='utf-8') as f:
-        f.write(html_content)
+        f.write(html_content_index)
     print("Page 'index.html' générée.")
     print("Construction du site terminée !")
 
