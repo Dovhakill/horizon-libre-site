@@ -5,13 +5,17 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import locale
 
-# Définit la langue française pour les dates
-locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
+# Essaye de définir la langue française pour les dates
+try:
+    locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
+except locale.Error:
+    print("ATTENTION: Locale fr_FR.UTF-8 non trouvée, les dates pourraient être en anglais.")
+    locale.setlocale(locale.LC_TIME, '')
 
 # --- Configuration ---
 ARTICLES_DIR = "article"
 TEMPLATES_DIR = "templates"
-OUTPUT_DIR = "public"
+OUTPUT_DIR = "public" # C'est le dossier que Netlify publiera
 
 def get_article_details(file_path):
     """Extrait les métadonnées d'un fichier d'article HTML."""
@@ -22,11 +26,9 @@ def get_article_details(file_path):
         title = title_tag.text.split('|')[0].strip() if title_tag else "Titre manquant"
         
         time_tag = soup.find('time')
-        date_iso = time_tag['datetime'] if time_tag else None
+        date_iso = time_tag['datetime'] if time_tag else datetime.now().isoformat()
         
-        date_obj = datetime.fromisoformat(date_iso.replace('Z', '+00:00')) if date_iso else datetime.fromtimestamp(os.path.getmtime(file_path))
-        
-        # Formatte la date en français (ex: 17 août 2025)
+        date_obj = datetime.fromisoformat(date_iso.replace('Z', '+00:00'))
         date_human = date_obj.strftime("%d %B %Y")
 
         image_tag = soup.select_one('figure img')
@@ -46,10 +48,17 @@ def main():
 
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
-    os.makedirs(OUTPUT_DIR)
+    os.makedirs(os.path.join(OUTPUT_DIR, ARTICLES_DIR))
     
+    # Copie les articles existants un par un
     if os.path.exists(ARTICLES_DIR):
-        shutil.copytree(ARTICLES_DIR, os.path.join(OUTPUT_DIR, ARTICLES_DIR))
+        for item in os.listdir(ARTICLES_DIR):
+            s = os.path.join(ARTICLES_DIR, item)
+            d = os.path.join(OUTPUT_DIR, ARTICLES_DIR, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, symlinks=True, ignore=None)
+            else:
+                shutil.copy2(s, d)
         print(f"Dossier '{ARTICLES_DIR}' copié.")
 
     articles = []
