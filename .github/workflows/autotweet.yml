@@ -4,26 +4,21 @@ on:
   push:
     branches:
       - main
-    # NE SE DÉCLENCHE QUE SI UN ARTICLE EST AJOUTÉ/MODIFIÉ
     paths:
       - 'article/**.html'
-  
   workflow_dispatch: {}
 
 jobs:
   tweet-latest-article:
     runs-on: ubuntu-latest
-    
-    # Empêche deux exécutions en même temps
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: false
-      
+    
     steps:
       - name: Checkout du code du site
         uses: actions/checkout@v4
         with:
-          # On a besoin de l'historique pour comparer les changements
           fetch-depth: 2
 
       - name: Set up Python
@@ -36,5 +31,11 @@ jobs:
 
       - name: Lancement du script d'Auto-Tweet
         env:
-          # ... (toutes tes clés API et variables)
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+          GEMINI_API_KEY_HORIZON: ${{ secrets.GEMINI_API_KEY_HORIZON }}
+          AURORE_BLOBS_TOKEN: ${{ secrets.AURORE_BLOBS_TOKEN }}
+          BLOBS_PROXY_URL: ${{ vars.BLOBS_PROXY_URL }}
         run: python autotweet.py
