@@ -6,7 +6,8 @@ on:
   push:
     branches:
       - main
-
+# Ajoute cette ligne pour pouvoir lancer le test manuellement
+  workflow_dispatch: {}
 jobs:
   tweet-latest-article:
     runs-on: ubuntu-latest
