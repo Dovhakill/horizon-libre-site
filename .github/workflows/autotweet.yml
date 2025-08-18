@@ -14,7 +14,7 @@ jobs:
       - name: Checkout du code du site
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,13 +26,12 @@ jobs:
 
       - name: Lancement du script d'Auto-Tweet
         env:
-          # Clés Twitter & Gemini
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_HORIZON }}
-          # On ajoute les secrets pour la mémoire
+          GEMINI_API_KEY_HORIZON: ${{ secrets.GEMINI_API_KEY_HORIZON }}
           AURORE_BLOBS_TOKEN: ${{ secrets.AURORE_BLOBS_TOKEN }}
+          # On s'assure de bien lire la variable depuis vars
           BLOBS_PROXY_URL: ${{ vars.BLOBS_PROXY_URL }}
         run: python autotweet.py
