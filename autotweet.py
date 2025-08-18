@@ -11,10 +11,11 @@ X_ACCESS_TOKEN = os.environ.get("X_ACCESS_TOKEN")
 X_ACCESS_TOKEN_SECRET = os.environ.get("X_ACCESS_TOKEN_SECRET")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY_HORIZON")
 SITE_URL = "https://horizon-libre.net"
-ARTICLES_DIR = "public/article" # On regarde dans le site final
+# MODIFICATION : On cherche dans le dossier source, pas le dossier de build
+ARTICLES_DIR = "article" 
 
 def get_latest_article():
-    """Trouve le dernier article publié en se basant sur la date de modification."""
+    """Trouve le dernier article modifié dans le dossier."""
     articles = list(Path(ARTICLES_DIR).glob("*.html"))
     if not articles:
         return None
@@ -69,6 +70,8 @@ def post_tweet(text):
         print(f"Tweet publié avec succès :\n{text}")
     except Exception as e:
         print(f"ERREUR lors de la publication du tweet : {e}")
+        # On lève l'erreur pour que le workflow GitHub soit marqué comme échoué
+        raise e
 
 def main():
     """Fonction principale du script."""
@@ -76,12 +79,11 @@ def main():
     
     latest_article_path = get_latest_article()
     if not latest_article_path:
-        print("Aucun nouvel article trouvé. Arrêt.")
+        print("Aucun article trouvé dans le dossier source. Arrêt.")
         return
         
     title, category = get_article_info(latest_article_path)
-    # On reconstruit l'URL publique
-    article_url = f"{SITE_URL}/article/{latest_article_path.name}"
+    article_url = f"{SITE_URL}/{latest_article_path}" # Le chemin est déjà correct
     
     tweet_text = generate_tweet(title, article_url, category)
     post_tweet(tweet_text)
