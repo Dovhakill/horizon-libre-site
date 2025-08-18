@@ -1,27 +1,38 @@
 import os
 import tweepy
-import frontmatter
 import google.generativeai as genai
 from pathlib import Path
+from bs4 import BeautifulSoup
 
 # --- Configuration ---
-# On récupère les clés depuis les secrets GitHub
 X_API_KEY = os.environ.get("X_API_KEY")
 X_API_SECRET = os.environ.get("X_API_SECRET")
 X_ACCESS_TOKEN = os.environ.get("X_ACCESS_TOKEN")
 X_ACCESS_TOKEN_SECRET = os.environ.get("X_ACCESS_TOKEN_SECRET")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") # On a aussi besoin de Gemini
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY_HORIZON")
 SITE_URL = "https://horizon-libre.net"
-ARTICLES_DIR = "article"
+ARTICLES_DIR = "public/article" # On regarde dans le site final
 
 def get_latest_article():
-    """Trouve le dernier article modifié dans le dossier."""
-    articles = Path(ARTICLES_DIR).glob("*.html")
+    """Trouve le dernier article publié en se basant sur la date de modification."""
+    articles = list(Path(ARTICLES_DIR).glob("*.html"))
+    if not articles:
+        return None
     latest_article = max(articles, key=lambda p: p.stat().st_mtime)
     return latest_article
 
+def get_article_info(path):
+    """Extrait le titre et la catégorie d'un fichier article."""
+    with open(path, 'r', encoding='utf-8') as f:
+        soup = BeautifulSoup(f.read(), 'html.parser')
+        title = soup.find('title').text.split('|')[0].strip()
+        category_tag = soup.find('meta', attrs={'name': 'category'})
+        category = category_tag['content'] if category_tag else 'Actualité'
+        return title, category
+
 def generate_tweet(title, url, category):
     """Génère un tweet intelligent avec Gemini."""
+    print(f"Génération du tweet pour : {title}")
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel("gemini-1.5-flash")
     
@@ -30,16 +41,16 @@ def generate_tweet(title, url, category):
     Rédige un tweet percutant et professionnel pour l'article suivant.
 
     Le tweet doit :
-    1.  Avoir une accroche intrigante (2 phrases maximum).
-    2.  Inclure entre 3 et 5 hashtags pertinents et populaires.
-    3.  Terminer par le lien vers l'article.
-    4.  Ne pas dépasser 280 caractères au total.
+    1. Avoir une accroche intrigante (1-2 phrases).
+    2. Inclure 3 à 5 hashtags pertinents et populaires en français.
+    3. Conclure avec le lien vers l'article.
+    4. Ne pas dépasser 280 caractères.
 
     Titre de l'article : "{title}"
     Catégorie : "{category}"
     Lien : {url}
 
-    Rédige uniquement le texte du tweet, sans rien d'autre.
+    Rédige uniquement le texte du tweet, sans introduction ni conclusion.
     """
     
     response = model.generate_content(prompt)
@@ -47,38 +58,34 @@ def generate_tweet(title, url, category):
 
 def post_tweet(text):
     """Poste le texte sur X (Twitter)."""
-    client = tweepy.Client(
-        consumer_key=X_API_KEY,
-        consumer_secret=X_API_SECRET,
-        access_token=X_ACCESS_TOKEN,
-        access_token_secret=X_ACCESS_TOKEN_SECRET
-    )
-    client.create_tweet(text=text)
-    print(f"Tweet publié avec succès :\n{text}")
+    try:
+        client = tweepy.Client(
+            consumer_key=X_API_KEY,
+            consumer_secret=X_API_SECRET,
+            access_token=X_ACCESS_TOKEN,
+            access_token_secret=X_ACCESS_TOKEN_SECRET
+        )
+        client.create_tweet(text=text)
+        print(f"Tweet publié avec succès :\n{text}")
+    except Exception as e:
+        print(f"ERREUR lors de la publication du tweet : {e}")
 
 def main():
-    """Fonction principale du script d'auto-tweet."""
+    """Fonction principale du script."""
     print("Début du script d'auto-tweet...")
     
     latest_article_path = get_latest_article()
-    print(f"Dernier article trouvé : {latest_article_path}")
-    
-    with open(latest_article_path, 'r', encoding='utf-8') as f:
-        # On lit les métadonnées de l'article
-        # Pour que cela fonctionne, on devra apprendre à Aurore à ajouter des métadonnées
-        # au début de ses fichiers. Pour l'instant, on simule.
-        # Remplaçons cette partie par une extraction simple du titre pour le moment.
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(f.read(), 'html.parser')
-        title = soup.find('title').text.split('|')[0].strip()
-        category_tag = soup.find('meta', attrs={'name': 'category'})
-        category = category_tag['content'] if category_tag else 'Actualité'
-
-    article_url = f"{SITE_URL}/{latest_article_path}"
+    if not latest_article_path:
+        print("Aucun nouvel article trouvé. Arrêt.")
+        return
+        
+    title, category = get_article_info(latest_article_path)
+    # On reconstruit l'URL publique
+    article_url = f"{SITE_URL}/article/{latest_article_path.name}"
     
     tweet_text = generate_tweet(title, article_url, category)
-    
     post_tweet(tweet_text)
+    
     print("Script d'auto-tweet terminé.")
 
 if __name__ == "__main__":
