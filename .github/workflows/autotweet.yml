@@ -1,13 +1,11 @@
 name: Aurore - Auto Tweet
 
 on:
-  # Se déclenche à chaque fois qu'il y a un push sur la branche main
-  # (ce qui arrive après chaque fusion d'un article)
   push:
     branches:
       - main
-# Ajoute cette ligne pour pouvoir lancer le test manuellement
   workflow_dispatch: {}
+
 jobs:
   tweet-latest-article:
     runs-on: ubuntu-latest
@@ -16,8 +14,7 @@ jobs:
       - name: Checkout du code du site
         uses: actions/checkout@v4
         with:
-          # On récupère tout l'historique pour trouver le dernier fichier
-          fetch-depth: 0 
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,9 +26,13 @@ jobs:
 
       - name: Lancement du script d'Auto-Tweet
         env:
+          # Clés Twitter & Gemini
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_HORIZON }}
+          # On ajoute les secrets pour la mémoire
+          AURORE_BLOBS_TOKEN: ${{ secrets.AURORE_BLOBS_TOKEN }}
+          BLOBS_PROXY_URL: ${{ vars.BLOBS_PROXY_URL }}
         run: python autotweet.py
