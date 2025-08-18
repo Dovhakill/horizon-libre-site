@@ -58,11 +58,14 @@ def main():
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
     context = {"current_year": datetime.now().year, "site_name": "L'Horizon Libre"}
 
+    # Génération Page d'Accueil
+    articles_for_homepage = all_articles[:9]
     index_template = env.get_template('index.html.j2')
-    index_html = index_template.render(articles=all_articles[:9], **context)
+    index_html = index_template.render(articles=articles_for_homepage, **context)
     with open(os.path.join(OUTPUT_DIR, 'index.html'), 'w', encoding='utf-8') as f: f.write(index_html)
     print("Page d'accueil générée.")
 
+    # Génération Pages Catégories
     articles_by_category = {cat: [] for cat in CATEGORIES}
     for article in all_articles:
         if article['category'] in articles_by_category: articles_by_category[article['category']].append(article)
@@ -72,6 +75,7 @@ def main():
         with open(os.path.join(OUTPUT_DIR, f'{category}.html'), 'w', encoding='utf-8') as f: f.write(html_content)
     print("Pages catégories générées.")
 
+    # Génération Pages Simples
     for page_name in SIMPLE_PAGES:
         try:
             template = env.get_template(f"{page_name}.html.j2")
@@ -79,8 +83,9 @@ def main():
             with open(os.path.join(OUTPUT_DIR, f'{page_name}.html'), 'w', encoding='utf-8') as f: f.write(html_content)
         except Exception: print(f"ATTENTION: Template pour '{page_name}' manquant.")
     print("Pages simples générées.")
-
-    print("Construction terminée !")
-
-if __name__ == "__main__":
-    main()
+    
+    # Génération de l'index de recherche
+    search_index = [{"title": a['title'], "url": f"{ARTICLES_DIR}/{a['filename']}", "description": a.get('description', '')} for a in all_articles]
+    with open(os.path.join(OUTPUT_DIR, 'search-index.json'), 'w', encoding='utf-8') as f:
+        json.dump(search_index, f, ensure_ascii=False)
+    print("Fichier 'search-index.json'
