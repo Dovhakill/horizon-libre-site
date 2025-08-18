@@ -1,12 +1,21 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <style>
-        /* ... (tes styles existants) ... */
-        #search-results { max-height: 300px; overflow-y: auto; }
-    </style>
-</head>
-<body>
+    </head>
+<body class="bg-gray-50 text-gray-800">
+    <header>
+        </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        </footer>
+    
+    <script>feather.replace();</script>
+</body>
+</html>
     <header class="bg-white shadow-sm sticky top-0 z-50">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-2">
