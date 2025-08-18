@@ -1,4 +1,4 @@
 Jinja2
 beautifulsoup4
 tweepy
-python-frontmatter
+google-generativeai
