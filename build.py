@@ -60,35 +60,25 @@ def main():
 
     index_template = env.get_template('index.html.j2')
     index_html = index_template.render(articles=all_articles[:9], **context)
-    with open(os.path.join(OUTPUT_DIR, 'index.html'), 'w', encoding='utf-8') as f:
-        f.write(index_html)
+    with open(os.path.join(OUTPUT_DIR, 'index.html'), 'w', encoding='utf-8') as f: f.write(index_html)
     print("Page d'accueil générée.")
 
     articles_by_category = {cat: [] for cat in CATEGORIES}
     for article in all_articles:
-        if article['category'] in articles_by_category:
-            articles_by_category[article['category']].append(article)
+        if article['category'] in articles_by_category: articles_by_category[article['category']].append(article)
     category_template = env.get_template("category.html.j2")
     for category, articles_list in articles_by_category.items():
         html_content = category_template.render(category_name=category, articles=articles_list, **context)
-        with open(os.path.join(OUTPUT_DIR, f'{category}.html'), 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        with open(os.path.join(OUTPUT_DIR, f'{category}.html'), 'w', encoding='utf-8') as f: f.write(html_content)
     print("Pages catégories générées.")
 
     for page_name in SIMPLE_PAGES:
         try:
             template = env.get_template(f"{page_name}.html.j2")
             html_content = template.render(**context)
-            with open(os.path.join(OUTPUT_DIR, f'{page_name}.html'), 'w', encoding='utf-8') as f:
-                f.write(html_content)
-        except Exception:
-            print(f"ATTENTION: Template pour '{page_name}' manquant.")
+            with open(os.path.join(OUTPUT_DIR, f'{page_name}.html'), 'w', encoding='utf-8') as f: f.write(html_content)
+        except Exception: print(f"ATTENTION: Template pour '{page_name}' manquant.")
     print("Pages simples générées.")
-
-    search_index = [{"title": a['title'], "url": f"{ARTICLES_DIR}/{a['filename']}", "description": a.get('description', '')} for a in all_articles]
-    with open(os.path.join(OUTPUT_DIR, 'search-index.json'), 'w', encoding='utf-8') as f:
-        json.dump(search_index, f, ensure_ascii=False)
-    print("Fichier 'search-index.json' créé.")
 
     print("Construction terminée !")
 
