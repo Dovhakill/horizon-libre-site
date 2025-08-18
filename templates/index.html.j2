@@ -1,7 +1,5 @@
 {% extends "base.html.j2" %}
-
 {% block title %}L'Horizon Libre - Média Indépendant d'Actualité{% endblock %}
-
 {% block content %}
     {% if articles %}
     <section id="hero">
@@ -10,10 +8,10 @@
             <div class="order-2 lg:order-1">
                 <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mt-2 mb-4 leading-tight">{{ articles[0].title }}</h1>
                 <p class="text-gray-500 text-sm mb-4">{{ articles[0].date_human }}</p>
-                <a href="{{ articles[0].url }}" class="inline-flex items-center text-blue-800 font-semibold group">Lire l'analyse <i data-feather="arrow-right" class="ml-2 w-4 h-4"></i></a>
+                <a href="article/{{ articles[0].filename }}" class="inline-flex items-center text-blue-800 font-semibold group">Lire l'analyse <i data-feather="arrow-right" class="ml-2 w-4 h-4"></i></a>
             </div>
             <div class="order-1 lg:order-2">
-                <a href="{{ articles[0].url }}"><img src="{{ articles[0].image_url }}" alt="{{ articles[0].title }}" class="rounded-lg shadow-xl w-full h-auto object-cover article-featured-image"></a>
+                <a href="article/{{ articles[0].filename }}"><img src="{{ articles[0].image_url }}" alt="{{ articles[0].title }}" class="rounded-lg shadow-xl w-full h-auto object-cover article-featured-image"></a>
             </div>
         </div>
     </section>
@@ -24,11 +22,11 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {% for article in articles[1:] %}
             <div class="bg-white rounded-lg shadow-md">
-                <a href="{{ article.url }}"><img src="{{ article.image_url }}" alt="{{ article.title }}" class="article-card-img"></a>
+                <a href="article/{{ article.filename }}"><img src="{{ article.image_url }}" alt="{{ article.title }}" class="article-card-img"></a>
                 <div class="p-6">
                     <h3 class="font-bold text-xl mt-2 mb-3">{{ article.title }}</h3>
                     <p class="text-gray-500 text-xs mb-3">{{ article.date_human }}</p>
-                    <a href="{{ article.url }}" class="text-sm font-semibold text-blue-800 hover:underline">Lire la suite</a>
+                    <a href="article/{{ article.filename }}" class="text-sm font-semibold text-blue-800 hover:underline">Lire la suite</a>
                 </div>
             </div>
             {% else %}
