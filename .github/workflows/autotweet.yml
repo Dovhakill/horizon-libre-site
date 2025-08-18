@@ -1,20 +1,22 @@
 name: Aurore - Auto Tweet
 
 on:
-  # Se déclenche quand un nouveau déploiement Netlify réussit
-  deployment_status:
-    
+  # Se déclenche à chaque fois qu'il y a un push sur la branche main
+  # (ce qui arrive après chaque fusion d'un article)
+  push:
+    branches:
+      - main
+
 jobs:
   tweet-latest-article:
-    # On exécute seulement si le déploiement de production a réussi
-    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'production'
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout du code du site
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Récupère tout l'historique pour trouver le dernier fichier modifié
+          # On récupère tout l'historique pour trouver le dernier fichier
+          fetch-depth: 0 
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,10 +28,9 @@ jobs:
 
       - name: Lancement du script d'Auto-Tweet
         env:
-          # On passe toutes les clés nécessaires au script
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_HORIZON }} # Note : Il faudra créer ce secret aussi
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_HORIZON }}
         run: python autotweet.py
