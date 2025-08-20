@@ -1,59 +1,52 @@
-# Nom du workflow qui apparaîtra dans l'onglet "Actions" de GitHub
+# Nom du workflow
 name: Aurore - Auto Tweet
 
 # Déclencheurs du workflow
 on:
-  # Se déclenche à chaque push sur la branche 'main'
+  # Se déclenche à chaque push sur la branche 'main' (on le garde en fallback)
   push:
     branches: [ main ]
-    # Mais seulement si des fichiers ont été modifiés dans ce chemin
     paths:
       - 'article/**/*.html'
-  # Permet aussi de lancer le workflow manuellement depuis l'interface GitHub
+
+  # NOUVEAU : Se déclenche quand un événement externe est reçu
+  repository_dispatch:
+    types: [ new-article-published ] # On écoute spécifiquement cet événement
+
+  # Permet aussi de lancer le workflow manuellement
   workflow_dispatch: {}
 
-# Liste des tâches à exécuter
+# Le reste du fichier jobs: ... reste identique
 jobs:
   tweet-latest-article:
-    # Le type de machine sur laquelle exécuter le job
     runs-on: ubuntu-latest
-
-    # Gestion de la concurrence :
-    # S'assure qu'un seul workflow d'auto-tweet tourne à la fois pour une même branche.
-    # 'cancel-in-progress: false' garantit qu'un run ne sera pas annulé par un nouveau push,
-    # ce qui évite de sauter un tweet.
     concurrency:
       group: autotweet-${{ github.ref }}
       cancel-in-progress: false
-
-    # Séquence des étapes à exécuter
     steps:
-      # 1. Récupère le code du dépôt
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Récupère tout l'historique Git, nécessaire pour comparer les commits (git diff)
           fetch-depth: 0
 
-      # 2. Configure l'environnement Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # 3. Installe les dépendances Python nécessaires au script
       - name: Install dependencies
         run: pip install -r requirements-autotweet.txt
 
-      # 4. Exécute le script Python pour tweeter
       - name: Run autotweet script
         env:
-          # Passage des secrets GitHub en tant que variables d'environnement pour le script
+          # Les secrets restent les mêmes
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          GEMINI_API_KEY_HORIZON: ${{ secrets.GEMINI_API_KEY_HORIZON }} # Optionnel
-          BLOBS_PROXY_URL: ${{ secrets.BLOBS_PROXY_URL }}               # Optionnel
-          AURORE_BLOBS_TOKEN: ${{ secrets.AURORE_BLOBS_TOKEN }}         # Optionnel
+          GEMINI_API_KEY_HORIZON: ${{ secrets.GEMINI_API_KEY_HORIZON }}
+          BLOBS_PROXY_URL: ${{ secrets.BLOBS_PROXY_URL }}
+          AURORE_BLOBS_TOKEN: ${{ secrets.AURORE_BLOBS_TOKEN }}
+          # On passe le payload de l'événement au script
+          GITHUB_EVENT_PAYLOAD: ${{ toJSON(github.event) }}
         run: python autotweet.py
