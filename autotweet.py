@@ -1,140 +1,258 @@
-import os import sys import json import time import hashlib import subprocess import tempfile from pathlib import Path from urllib.parse import urljoin, urlparse, urlunparse, parse_qsl, urlencode
-
-import requests import tweepy from bs4 import BeautifulSoup from PIL import Image
-
-Tente d'importer Gemini (optionnel)
-try: import google.generativeai as genai except Exception: genai = None
-
---- Configuration ---
-SITE_URL = "https://horizon-libre.net" ARTICLES_DIR = "article"
-
---- Secrets & Clés API ---
-X_API_KEY = os.environ.get("X_API_KEY") X_API_SECRET = os.environ.get("X_API_SECRET") X_ACCESS_TOKEN = os.environ.get("X_ACCESS_TOKEN") X_ACCESS_TOKEN_SECRET = os.environ.get("X_ACCESS_TOKEN_SECRET") GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY_HORIZON") GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash") BLOBS_PROXY_URL = os.environ.get("BLOBS_PROXY_URL") AURORE_BLOBS_TOKEN = os.environ.get("AURORE_BLOBS_TOKEN")
-
-def log(msg: str): print(msg, flush=True)
-
----------- Mémoire anti-doublon ----------
-def _auth_headers(): return {"X-AURORE-TOKEN": AURORE_BLOBS_TOKEN} if AURORE_BLOBS_TOKEN else {}
-
-def stable_key_for_path(path_rel: str) -> str: return hashlib.sha256(path_rel.strip().lower().encode("utf-8")).hexdigest()
-
-def seen(key: str) -> bool: if not BLOBS_PROXY_URL or not AURORE_BLOBS_TOKEN: return False try: url = f"{BLOBS_PROXY_URL.rstrip('/')}/{key}" r = requests.get(url, headers=_auth_headers(), timeout=5) if r.status_code == 200: return True if r.status_code == 404: return False log(f"[memoire] GET {url} -> {r.status_code}, on continue.") return False except Exception as e: log(f"[memoire] GET échec: {e}. Continue sans mémoire.") return False
-
-def mark(key: str): if not BLOBS_PROXY_URL or not AURORE_BLOBS_TOKEN: return try: url = f"{BLOBS_PROXY_URL.rstrip('/')}/{key}" r = requests.put(url, headers=_auth_headers(), data=b"1", timeout=5) if r.status_code in (200, 201, 204): return r = requests.post(url, headers=_auth_headers(), data=b"1", timeout=5) if r.status_code not in (200, 201, 204): log(f"[memoire] Ecriture {url} -> {r.status_code} body: {r.text[:200]}") except Exception as e: log(f"[memoire] Ecriture échec: {e}")
-
----------- Lecture de l'événement ----------
-def get_event(): p = os.environ.get("GITHUB_EVENT_PATH") if not p or not os.path.isfile(p): return {} try: with open(p, "r", encoding="utf-8") as f: return json.load(f) except Exception as e: log(f"Impossible de lire GITHUB_EVENT_PATH: {e}") return {}
-
-def git_added_paths(before: str, after: str): try: out = subprocess.check_output( ["git", "diff", "--diff-filter=A", "--name-only", before, after, "--", f"{ARTICLES_DIR}/*.html"], text=True ).strip() return [ln for ln in out.splitlines() if ln.strip()] except Exception as e: log(f"git diff exception: {e}") return []
-
-def commits_added_paths(event: dict): added = set() try: for c in event.get("commits") or []: for p in c.get("added") or []: if p.startswith(f"{ARTICLES_DIR}/") and p.endswith(".html"): added.add(p) except Exception as e: log(f"Lecture commits.added échouée: {e}") return sorted(added)
-
-def find_new_articles(): """ Détecte les nouveaux articles depuis repository_dispatch (client_payload.articles) ou, en fallback, depuis un push (git diff / commits.added). """ event = get_event() event_name = os.environ.get("GITHUB_EVENT_NAME", "")
-
-if event_name == "repository_dispatch":
-    if event.get("action") == "new-article-published":
-        paths = event.get("client_payload", {}).get("articles", [])
-        paths = [p for p in paths if p.startswith(f"{ARTICLES_DIR}/") and p.endswith(".html")]
-        if paths:
-            log(f"Articles détectés via repository_dispatch: {paths}")
-            return paths
-
-if event_name == "push":
-    before, after = event.get("before"), event.get("after")
-    paths = git_added_paths(before, after) if before and after else []
-    if not paths:
-        log("Fallback: analyse des fichiers 'added' dans les commits.")
-        paths = commits_added_paths(event)
-    paths = [p for p in paths if p.startswith(f"{ARTICLES_DIR}/") and p.endswith(".html")]
-    if paths:
-        log(f"Articles détectés via push: {paths}")
-    return paths
-
-return []
----------- Parsing article ----------
-def parse_article_info(path_rel: str): p = Path(path_rel) title, category = None, None try: with open(p, "r", encoding="utf-8") as f: soup = BeautifulSoup(f.read(), "html.parser") if soup.title and soup.title.string: title = soup.title.string.strip().split("|")[0].strip() if not title: h1 = soup.find("h1") if h1 and h1.get_text(strip=True): title = h1.get_text(strip=True) meta_cat = soup.find("meta", attrs={"property": "article:section"}) or soup.find("meta", attrs={"name": "category"}) if meta_cat and meta_cat.get("content"): category = meta_cat["content"].strip() except Exception as e: log(f"Parse erreur sur {path_rel}: {e}") if not title: title = p.stem.replace("-", " ").strip().capitalize() return title, category
-
----------- Hashtags, URL, génération ----------
-STOPWORDS_FR = { "le","la","les","un","une","des","de","du","d","et","en","à","au","aux","pour","par", "sur","avec","sans","dans","ce","cet","cette","ces","ou","mais","plus","moins" }
-
-def build_hashtags(title: str, category: str | None) -> list[str]: tags = set() if category: c = category.strip().lower().replace(" ", "") if c: tags.add("#" + c.capitalize()) words = [w.strip(".,:;!?()[]«»"'").lower() for w in (title or "").split()] for w in words: if len(w) >= 4 and w.isalpha() and w not in STOPWORDS_FR: tags.add("#" + w.capitalize()) if len(tags) >= 5: break tags = ["#HorizonLibre"] + sorted(tags - {"#HorizonLibre"}) return tags[:2]
-
-def append_utm(url: str) -> str: if not os.environ.get("ENABLE_UTM"): return url try: u = urlparse(url) q = dict(parse_qsl(u.query)) q.update({"utm_source": "twitter", "utm_medium": "social", "utm_campaign": "autotweet"}) new_u = u._replace(query=urlencode(q)) return urlunparse(new_u) except Exception: return url
-
-def safe_trim_tweet(text: str, limit: int = 280) -> str: if len(text) <= limit: return text return (text[: limit - 1] + "…").rstrip()
-
-def generate_tweet(title: str, url: str, category: str | None) -> str: url = append_utm(url) tags = build_hashtags(title, category) brand = "#HorizonLibre" hashtags = [brand] + ([t for t in tags if t != brand][:1])
-
-if GEMINI_API_KEY and genai is not None:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        prompt = (
-            "Rédige un tweet concis en français (<= 260 caractères), informatif et neutre, "
-            "qui donne envie de lire sans clickbait. Termine par l’URL exacte fournie. "
-            "Inclure exactement ces hashtags à la fin du tweet: "
-            f"{' '.join(hashtags)}. Pas d'emojis.\n\n"
-            f"Titre: {title}\nCatégorie: {category or ''}\n"
-        )
-        resp = model.generate_content(prompt)
-        text = (getattr(resp, "text", None) or "").strip()
-        if not text:
-            raise ValueError("Réponse vide")
-        if url not in text:
-            text = f"{text} {url}"
-        return safe_trim_tweet(text)
-    except Exception as e:
-        log(f"Gemini erreur, fallback: {e}")
-
-base = f"{title}"
-text = f"{base} {url} {' '.join(hashtags)}"
-return safe_trim_tweet(text)
----------- Image ----------
-def resolve_local_path(article_rel: str, src: str) -> str | None: if src.startswith("http://") or src.startswith("https://"): return None root_rel = src.lstrip("/") candidates = [ Path(root_rel), Path(article_rel).parent / src, Path("public") / root_rel, Path("static") / root_rel, Path("assets") / root_rel, ] for cand in candidates: if cand.is_file(): return cand.as_posix() return None
-
-def first_img_src_and_alt(soup: BeautifulSoup): og = soup.find("meta", attrs={"property": "og:image"}) if og and og.get("content"): return og["content"].strip(), None tw = soup.find("meta", attrs={"name": "twitter:image"}) if tw and tw.get("content"): return tw["content"].strip(), None link = soup.find("link", attrs={"rel": "image_src"}) if link and link.get("href"): return link["href"].strip(), None article = soup.find("article") or soup img = article.find("img") if img and img.get("src"): alt = img.get("alt") or None fig = img.find_parent("figure") if fig: cap = fig.find("figcaption") if cap and cap.get_text(strip=True): alt = alt or cap.get_text(strip=True) return img["src"].strip(), alt return None, None
-
-def download_if_remote(url: str) -> str | None: try: r = requests.get(url, timeout=15) r.raise_for_status() suffix = os.path.splitext(urlparse(url).path)[1] or ".jpg" tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix) tmp.write(r.content) tmp.flush(); tmp.close() return tmp.name except Exception as e: log(f"Téléchargement image échoué: {e}") return None
-
-def prepare_image_for_twitter(path: str) -> str | None: try: im = Image.open(path) if im.mode not in ("RGB", "L"): im = im.convert("RGB") max_side = 4096 if max(im.size) > max_side: im.thumbnail((max_side, max_side), Image.LANCZOS) out = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") out.close() quality = 90 for _ in range(5): im.save(out.name, format="JPEG", quality=quality, optimize=True, progressive=True) if os.path.getsize(out.name) <= 4_800_000 or quality <= 70: break quality -= 5 return out.name except Exception as e: log(f"Préparation image échouée: {e}") return None
-
-def find_article_image(article_rel: str) -> tuple[str | None, str | None]: try: with open(article_rel, "r", encoding="utf-8") as f: soup = BeautifulSoup(f.read(), "html.parser") src, alt = first_img_src_and_alt(soup) if not src: return None, None local = resolve_local_path(article_rel, src) if local: prepared = prepare_image_for_twitter(local) return prepared, alt url_abs = src if src.startswith("http") else urljoin(SITE_URL + "/", src.lstrip("/")) downloaded = download_if_remote(url_abs) if not downloaded: return None, None prepared = prepare_image_for_twitter(downloaded) return prepared, alt except Exception as e: log(f"find_article_image erreur: {e}") return None, None
-
----------- Twitter (X) ----------
-def twitter_client(): missing = [k for k, v in { "X_API_KEY": X_API_KEY, "X_API_SECRET": X_API_SECRET, "X_ACCESS_TOKEN": X_ACCESS_TOKEN, "X_ACCESS_TOKEN_SECRET": X_ACCESS_TOKEN_SECRET, }.items() if not v] if missing: raise RuntimeError(f"Clés Twitter manquantes: {', '.join(missing)}") auth = tweepy.OAuth1UserHandler( X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET ) api = tweepy.API(auth) try: api.verify_credentials() except Exception as e: log(f"Avertissement: verify_credentials a échoué: {e}") return api
-
-def post_tweet(api, text: str, media_path: str | None = None, alt_text: str | None = None): if media_path: media = api.media_upload(filename=media_path) try: if alt_text: api.create_media_metadata(media.media_id, alt_text=alt_text[:1000]) except Exception as e: log(f"Alt text non défini: {e}") return api.update_status(status=text, media_ids=[media.media_id]) else: return api.update_status(status=text)
-
----------- Main ----------
-def main(): log("Début du script d'auto-tweet…") added_paths = find_new_articles() if not added_paths: log("Aucun nouvel article détecté. Fin.") return
-
+import os
+import sys
+import json
+import hashlib
+import time
+import subprocess
+import requests
+import tweepy
+from bs4 import BeautifulSoup
+from PIL import Image
+from io import BytesIO
 try:
-    api = twitter_client()
-except Exception as e:
-    log(f"Erreur d'initialisation Twitter: {e}")
-    sys.exit(1)
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
-nb_success = 0
-for rel_path in added_paths:
-    rel_posix = Path(rel_path).as_posix()
-    url = f"{SITE_URL}/{rel_posix.lstrip('/')}"
-    title, category = parse_article_info(rel_posix)
+# Constants
+SITE_URL = "https://horizon-libre.net"
+ARTICLES_DIR = "article"
+MAX_TWEET_LENGTH = 280
+UTM_PARAMS = "?utm_source=twitter&utm_medium=social&utm_campaign=autotweet"
+GEMINI_MODEL_DEFAULT = "gemini-1.5-flash"
+PAUSE_BETWEEN_TWEETS = 2  # seconds
 
-    key = stable_key_for_path(rel_posix)
-    if seen(key):
-        log(f"Déjà tweeté (mémoire): {rel_posix} — on passe.")
-        continue
+# Logging function
+def log(message):
+    print(message, flush=True)
 
-    img_path, img_alt = find_article_image(rel_posix)
-    tweet_text = generate_tweet(title, url, category)
+# Memory functions for deduplication
+def get_memory_key(article_path):
+    return hashlib.sha256(article_path.encode()).hexdigest().lower()
+
+def has_been_seen(key, blobs_url, token):
+    if not blobs_url or not token:
+        return False
     try:
-        resp = post_tweet(api, tweet_text, media_path=img_path, alt_text=(img_alt or title))
-        nb_success += 1
-        log(f"Tweet publié pour {rel_posix}: id={getattr(resp, 'id', None)}")
-        mark(key)
-        time.sleep(2)
+        url = f"{blobs_url}/{key}"
+        response = requests.get(url, headers={"X-AURORE-TOKEN": token})
+        return response.status_code == 200
     except Exception as e:
-        log(f"Erreur de publication pour {rel_posix}: {e}")
+        log(f"Memory check failed: {e}")
+        return False
 
-log(f"Terminé. Tweets publiés: {nb_success}/{len(added_paths)}")
-if name == "main": main()
+def mark_as_seen(key, blobs_url, token):
+    if not blobs_url or not token:
+        return
+    try:
+        url = f"{blobs_url}/{key}"
+        requests.put(url, data="1", headers={"X-AURORE-TOKEN": token})
+    except Exception as e:
+        log(f"Memory mark failed: {e}")
+
+# Read GitHub event
+def read_github_event():
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path:
+        with open(event_path, "r") as f:
+            return json.load(f)
+    return None
+
+# Detect new articles
+def detect_new_articles():
+    event = read_github_event()
+    if event and event.get("action") == "new-article-published":
+        payload = event.get("client_payload", {})
+        return payload.get("articles", [])
+    else:
+        # For push: get added files via git diff
+        try:
+            commit_sha = os.environ.get("GITHUB_SHA", "HEAD")
+            prev_sha = f"{commit_sha}~1" if commit_sha else "HEAD~1"
+            diff_output = subprocess.check_output(["git", "diff", "--diff-filter=A", "--name-only", prev_sha]).decode().splitlines()
+            return [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")]
+        except Exception as e:
+            log(f"Git diff failed: {e}")
+            return []
+
+# Parse HTML for title and category
+def parse_article(article_path):
+    try:
+        with open(article_path, "r", encoding="utf-8") as f:
+            soup = BeautifulSoup(f.read(), "html.parser")
+        title = soup.title.string.strip() if soup.title else "Untitled"
+        category = None
+        meta_section = soup.find("meta", {"property": "article:section"})
+        if meta_section:
+            category = meta_section["content"].strip()
+        else:
+            meta_category = soup.find("meta", {"name": "category"})
+            if meta_category:
+                category = meta_category["content"].strip()
+        return title, category
+    except Exception as e:
+        log(f"Parsing failed for {article_path}: {e}")
+        return None, None
+
+# Generate hashtags
+def generate_hashtags(title, category):
+    hashtags = ["#HorizonLibre"]
+    if category:
+        hashtags.append(f"#{category.replace(' ', '').lower()}")
+    elif title:
+        # Simple keyword from title as fallback
+        words = title.split()
+        if words:
+            hashtags.append(f"#{words[0].lower()}")
+    return " ".join(set(hashtags[:2]))  # At most 2 unique
+
+# Append UTM if enabled
+def append_utm(url):
+    if os.environ.get("ENABLE_UTM"):
+        return url + UTM_PARAMS
+    return url
+
+# Safe trim to max length
+def safe_trim(text, max_len=MAX_TWEET_LENGTH):
+    if len(text) <= max_len:
+        return text
+    return text[:max_len - 3] + "..."
+
+# Generate alt text
+def generate_alt_text(image_data, gemini_api_key, gemini_model):
+    if gemini_api_key and genai:
+        try:
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel(gemini_model)
+            response = model.generate_content(["Describe this image briefly for accessibility.", image_data])
+            alt = response.text.strip()[:1000]
+            return alt if alt else "Image from article"
+        except Exception as e:
+            log(f"Gemini failed: {e}")
+    # Fallback local: simple placeholder
+    return "Image from article"
+
+# Find and prepare image
+def find_and_prepare_image(article_path, soup):
+    try:
+        # Find image URL
+        img_url = None
+        og_image = soup.find("meta", {"property": "og:image"})
+        if og_image:
+            img_url = og_image["content"]
+        else:
+            twitter_image = soup.find("meta", {"name": "twitter:image"})
+            if twitter_image:
+                img_url = twitter_image["content"]
+            else:
+                image_src = soup.find("link", {"rel": "image_src"})
+                if image_src:
+                    img_url = image_src["href"]
+                else:
+                    article_tag = soup.find("article")
+                    if article_tag:
+                        img_tag = article_tag.find("img")
+                        if img_tag:
+                            img_url = img_tag["src"]
+                            # Fallback alt from HTML
+                            alt = img_tag.get("alt") or img_tag.find_parent("figure").find("figcaption").text.strip() if img_tag.find_parent("figure") else None
+        if not img_url:
+            return None, None
+
+        # Resolve path
+        if not img_url.startswith("http"):
+            img_url = os.path.join(os.path.dirname(article_path), img_url)
+            with open(img_url, "rb") as f:
+                img_data = f.read()
+        else:
+            response = requests.get(img_url)
+            img_data = response.content
+
+        # Prepare image: RGB, max 4096px, JPEG progressive <=4.8MB
+        img = Image.open(BytesIO(img_data))
+        img = img.convert("RGB")
+        max_size = 4096
+        if img.width > max_size or img.height > max_size:
+            ratio = min(max_size / img.width, max_size / img.height)
+            img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS)
+        quality = 95
+        while True:
+            buffer = BytesIO()
+            img.save(buffer, format="JPEG", progressive=True, quality=quality)
+            size = buffer.tell()
+            if size <= 4.8 * 1024 * 1024 or quality <= 50:
+                break
+            quality -= 5
+        return buffer.getvalue(), alt
+    except Exception as e:
+        log(f"Image processing failed: {e}")
+        return None, None
+
+# Build tweet text
+def build_tweet_text(title, hashtags, article_url):
+    base = f"Nouvel article: {title}"
+    tweet = f"{base} {hashtags} {article_url}"
+    return safe_trim(tweet)
+
+# Post tweet
+def post_tweet(tweet_text, image_data=None, alt_text=None):
+    try:
+        consumer_key = os.environ["X_API_KEY"]
+        consumer_secret = os.environ["X_API_SECRET"]
+        access_token = os.environ["X_ACCESS_TOKEN"]
+        access_token_secret = os.environ["X_ACCESS_TOKEN_SECRET"]
+        auth = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, access_token, access_token_secret)
+        api = tweepy.API(auth)
+        if image_data:
+            media = api.media_upload(filename="image.jpg", file=BytesIO(image_data))
+            api.update_status(status=tweet_text, media_ids=[media.media_id], possibly_sensitive=False, attachment_url=None)
+            if alt_text:
+                api.create_media_metadata(media.media_id, alt_text)
+        else:
+            api.update_status(status=tweet_text)
+        log("Tweet posted successfully")
+    except Exception as e:
+        log(f"Tweet posting failed: {e}")
+
+# Main function
+def main():
+    articles = detect_new_articles()
+    if not articles:
+        log("No new articles found")
+        return
+
+    blobs_url = os.environ.get("BLOBS_PROXY_URL")
+    aurore_token = os.environ.get("AURORE_BLOBS_TOKEN")
+    gemini_api_key = os.environ.get("GEMINI_API_KEY_HORIZON")
+    gemini_model = os.environ.get("GEMINI_MODEL", GEMINI_MODEL_DEFAULT)
+
+    for idx, article_path in enumerate(articles):
+        key = get_memory_key(article_path)
+        if has_been_seen(key, blobs_url, aurore_token):
+            log(f"Skipping duplicate: {article_path}")
+            continue
+
+        title, category = parse_article(article_path)
+        if not title:
+            log(f"Skipping invalid article: {article_path}")
+            continue
+
+        with open(article_path, "r", encoding="utf-8") as f:
+            soup = BeautifulSoup(f.read(), "html.parser")
+
+        hashtags = generate_hashtags(title, category)
+        article_url = append_utm(f"{SITE_URL}/{article_path}")
+        tweet_text = build_tweet_text(title, hashtags, article_url)
+
+        image_data, html_alt = find_and_prepare_image(article_path, soup)
+        alt_text = html_alt if html_alt else generate_alt_text(image_data, gemini_api_key, gemini_model) if image_data else None
+
+        post_tweet(tweet_text, image_data, alt_text)
+
+        mark_as_seen(key, blobs_url, aurore_token)
+
+        if idx < len(articles) - 1:
+            time.sleep(PAUSE_BETWEEN_TWEETS)
+
+if __name__ == "__main__":
+    main()
