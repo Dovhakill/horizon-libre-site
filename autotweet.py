@@ -20,8 +20,9 @@ ARTICLES_DIR = "article"
 MAX_TWEET_LENGTH = 280
 UTM_PARAMS = "?utm_source=twitter&utm_medium=social&utm_campaign=autotweet"
 GEMINI_MODEL_DEFAULT = "gemini-1.5-flash"
-PAUSE_BETWEEN_TWEETS = 2  # seconds
+PAUSE_BETWEEN_TWEETS = 10  # seconds
 EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+MAX_ARTICLES_PER_RUN = 5  # Limit to avoid rate limits
 
 # Logging function
 def log(message):
@@ -64,7 +65,7 @@ def detect_new_articles():
     event = read_github_event()
     if event and event.get("action") == "new-article-published":
         payload = event.get("client_payload", {})
-        return payload.get("articles", [])
+        return payload.get("articles", [])[:MAX_ARTICLES_PER_RUN]
     else:
         try:
             try:
@@ -72,7 +73,8 @@ def detect_new_articles():
             except subprocess.CalledProcessError:
                 prev_sha = EMPTY_TREE_SHA
             diff_output = subprocess.check_output(["git", "diff", "--diff-filter=A", "--name-only", prev_sha, "HEAD"]).decode().splitlines()
-            return [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")]
+            articles = [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")]
+            return articles[:MAX_ARTICLES_PER_RUN]
         except Exception as e:
             log(f"Git diff failed: {e}")
             return []
@@ -136,6 +138,7 @@ def generate_alt_text(image_data, gemini_api_key, gemini_model):
 def find_and_prepare_image(article_path, soup):
     try:
         img_url = None
+        alt = None
         og_image = soup.find("meta", {"property": "og:image"})
         if og_image:
             img_url = og_image["content"]
@@ -153,7 +156,7 @@ def find_and_prepare_image(article_path, soup):
                         img_tag = article_tag.find("img")
                         if img_tag:
                             img_url = img_tag["src"]
-                            alt = img_tag.get("alt") or img_tag.find_parent("figure").find("figcaption").text.strip() if img_tag.find_parent("figure") else None
+                            alt = img_tag.get("alt") or (img_tag.find_parent("figure").find("figcaption").text.strip() if img_tag.find_parent("figure") else None)
         if not img_url:
             return None, None
 
@@ -190,7 +193,7 @@ def build_tweet_text(title, hashtags, article_url):
     tweet = f"{base} {hashtags} {article_url}"
     return safe_trim(tweet)
 
-# Post tweet (updated for v2)
+# Post tweet
 def post_tweet(tweet_text, image_data=None, alt_text=None):
     try:
         consumer_key = os.environ["X_API_KEY"]
@@ -198,11 +201,9 @@ def post_tweet(tweet_text, image_data=None, alt_text=None):
         access_token = os.environ["X_ACCESS_TOKEN"]
         access_token_secret = os.environ["X_ACCESS_TOKEN_SECRET"]
 
-        # v1.1 for media upload
         auth = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, access_token, access_token_secret)
         api = tweepy.API(auth)
 
-        # v2 for posting tweet
         client = tweepy.Client(consumer_key=consumer_key, consumer_secret=consumer_secret,
                                access_token=access_token, access_token_secret=access_token_secret)
 
@@ -213,7 +214,6 @@ def post_tweet(tweet_text, image_data=None, alt_text=None):
             if alt_text:
                 api.create_media_metadata(media.media_id, alt_text)
 
-        # Post with v2
         client.create_tweet(text=tweet_text, media_ids=media_ids)
         log("Tweet posted successfully")
     except Exception as e:
