@@ -3,6 +3,7 @@ import sys
 import json
 import hashlib
 import time
+import subprocess
 import requests
 import tweepy
 from bs4 import BeautifulSoup
@@ -20,6 +21,7 @@ MAX_TWEET_LENGTH = 280
 UTM_PARAMS = "?utm_source=twitter&utm_medium=social&utm_campaign=autotweet"
 GEMINI_MODEL_DEFAULT = "gemini-1.5-flash"
 PAUSE_BETWEEN_TWEETS = 2  # seconds
+EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 # Logging function
 def log(message):
@@ -57,29 +59,27 @@ def read_github_event():
             return json.load(f)
     return None
 
-# Detect new articles (with debug logs)
+# Detect new articles (using git diff for push, robust for first commit)
 def detect_new_articles():
     event = read_github_event()
-    if event:
-        log(f"Event keys: {list(event.keys())}")
-        if event.get("action") == "new-article-published":
-            payload = event.get("client_payload", {})
-            articles = payload.get("articles", [])
-            log(f"Repository dispatch articles: {articles}")
-            return articles
-        elif "commits" in event:
-            log(f"Number of commits: {len(event['commits'])}")
-            added_files = set()
-            for commit in event.get("commits", []):
-                added = commit.get("added", [])
-                log(f"Added files in commit {commit.get('id')}: {added}")
-                for file in added:
-                    if file.startswith(ARTICLES_DIR + "/") and file.endswith(".html"):
-                        added_files.add(file)
-            return list(added_files)
+    if event and event.get("action") == "new-article-published":
+        payload = event.get("client_payload", {})
+        return payload.get("articles", [])
     else:
-        log("No GitHub event found")
-    return []
+        # For push: get added files via git diff
+        try:
+            # Get previous SHA, or empty tree if first commit
+            try:
+                prev_sha = subprocess.check_output(["git", "rev-parse", "HEAD~1"]).decode().strip()
+            except subprocess.CalledProcessError:
+                prev_sha = EMPTY_TREE_SHA
+            diff_output = subprocess.check_output(["git", "diff", "--diff-filter=A", "--name-only", prev_sha, "HEAD"]).decode().splitlines()
+            articles = [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")]
+            log(f"Detected articles via git diff: {articles}")
+            return articles
+        except Exception as e:
+            log(f"Git diff failed: {e}")
+            return []
 
 # Parse HTML for title and category
 def parse_article(article_path):
@@ -223,7 +223,6 @@ def post_tweet(tweet_text, image_data=None, alt_text=None):
 # Main function
 def main():
     articles = detect_new_articles()
-    log(f"Detected articles: {articles}")
     if not articles:
         log("No new articles found")
         return
