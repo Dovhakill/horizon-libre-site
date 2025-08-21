@@ -77,24 +77,20 @@ jobs:
                       return json.load(f)
               return None
 
-          # Detect new articles (using git diff for push, robust for first commit)
+          # Detect new articles
           def detect_new_articles():
               event = read_github_event()
               if event and event.get("action") == "new-article-published":
                   payload = event.get("client_payload", {})
                   return payload.get("articles", [])
               else:
-                  # For push: get added files via git diff
                   try:
-                      # Get previous SHA, or empty tree if first commit
                       try:
                           prev_sha = subprocess.check_output(["git", "rev-parse", "HEAD~1"]).decode().strip()
                       except subprocess.CalledProcessError:
                           prev_sha = EMPTY_TREE_SHA
                       diff_output = subprocess.check_output(["git", "diff", "--diff-filter=A", "--name-only", prev_sha, "HEAD"]).decode().splitlines()
-                      articles = [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")]
-                      log(f"Detected articles via git diff: {articles}")
-                      return articles
+                      return [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")]
                   except Exception as e:
                       log(f"Git diff failed: {e}")
                       return []
@@ -124,11 +120,10 @@ jobs:
               if category:
                   hashtags.append(f"#{category.replace(' ', '').lower()}")
               elif title:
-                  # Simple keyword from title as fallback
                   words = title.split()
                   if words:
                       hashtags.append(f"#{words[0].lower()}")
-              return " ".join(set(hashtags[:2]))  # At most 2 unique
+              return " ".join(set(hashtags[:2]))
 
           # Append UTM if enabled
           def append_utm(url):
@@ -153,13 +148,11 @@ jobs:
                       return alt if alt else "Image from article"
                   except Exception as e:
                       log(f"Gemini failed: {e}")
-              # Fallback local: simple placeholder
               return "Image from article"
 
           # Find and prepare image
           def find_and_prepare_image(article_path, soup):
               try:
-                  # Find image URL
                   img_url = None
                   og_image = soup.find("meta", {"property": "og:image"})
                   if og_image:
@@ -178,12 +171,10 @@ jobs:
                                   img_tag = article_tag.find("img")
                                   if img_tag:
                                       img_url = img_tag["src"]
-                                      # Fallback alt from HTML
                                       alt = img_tag.get("alt") or img_tag.find_parent("figure").find("figcaption").text.strip() if img_tag.find_parent("figure") else None
                   if not img_url:
                       return None, None
 
-                  # Resolve path
                   if not img_url.startswith("http"):
                       img_url = os.path.join(os.path.dirname(article_path), img_url)
                       with open(img_url, "rb") as f:
@@ -192,7 +183,6 @@ jobs:
                       response = requests.get(img_url)
                       img_data = response.content
 
-                  # Prepare image: RGB, max 4096px, JPEG progressive <=4.8MB
                   img = Image.open(BytesIO(img_data))
                   img = img.convert("RGB")
                   max_size = 4096
@@ -218,22 +208,31 @@ jobs:
               tweet = f"{base} {hashtags} {article_url}"
               return safe_trim(tweet)
 
-          # Post tweet
+          # Post tweet (updated for v2)
           def post_tweet(tweet_text, image_data=None, alt_text=None):
               try:
                   consumer_key = os.environ["X_API_KEY"]
                   consumer_secret = os.environ["X_API_SECRET"]
                   access_token = os.environ["X_ACCESS_TOKEN"]
                   access_token_secret = os.environ["X_ACCESS_TOKEN_SECRET"]
+
+                  # v1.1 for media upload
                   auth = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, access_token, access_token_secret)
                   api = tweepy.API(auth)
+
+                  # v2 for posting tweet
+                  client = tweepy.Client(consumer_key=consumer_key, consumer_secret=consumer_secret,
+                                         access_token=access_token, access_token_secret=access_token_secret)
+
+                  media_ids = None
                   if image_data:
                       media = api.media_upload(filename="image.jpg", file=BytesIO(image_data))
-                      api.update_status(status=tweet_text, media_ids=[media.media_id], possibly_sensitive=False, attachment_url=None)
+                      media_ids = [media.media_id]
                       if alt_text:
                           api.create_media_metadata(media.media_id, alt_text)
-                  else:
-                      api.update_status(status=tweet_text)
+
+                  # Post with v2
+                  client.create_tweet(text=tweet_text, media_ids=media_ids)
                   log("Tweet posted successfully")
               except Exception as e:
                   log(f"Tweet posting failed: {e}")
