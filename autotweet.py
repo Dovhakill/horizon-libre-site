@@ -3,7 +3,6 @@ import sys
 import json
 import hashlib
 import time
-import subprocess
 import requests
 import tweepy
 from bs4 import BeautifulSoup
@@ -58,22 +57,21 @@ def read_github_event():
             return json.load(f)
     return None
 
-# Detect new articles
+# Detect new articles (updated version)
 def detect_new_articles():
     event = read_github_event()
-    if event and event.get("action") == "new-article-published":
-        payload = event.get("client_payload", {})
-        return payload.get("articles", [])
-    else:
-        # For push: get added files via git diff
-        try:
-            commit_sha = os.environ.get("GITHUB_SHA", "HEAD")
-            prev_sha = f"{commit_sha}~1" if commit_sha else "HEAD~1"
-            diff_output = subprocess.check_output(["git", "diff", "--diff-filter=A", "--name-only", prev_sha]).decode().splitlines()
-            return [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")]
-        except Exception as e:
-            log(f"Git diff failed: {e}")
-            return []
+    if event:
+        if event.get("action") == "new-article-published":
+            payload = event.get("client_payload", {})
+            return payload.get("articles", [])
+        elif "commits" in event:  # For push events
+            added_files = set()
+            for commit in event.get("commits", []):
+                for file in commit.get("added", []):
+                    if file.startswith(ARTICLES_DIR + "/") and file.endswith(".html"):
+                        added_files.add(file)
+            return list(added_files)
+    return []
 
 # Parse HTML for title and category
 def parse_article(article_path):
