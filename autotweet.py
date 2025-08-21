@@ -57,20 +57,28 @@ def read_github_event():
             return json.load(f)
     return None
 
-# Detect new articles (updated version)
+# Detect new articles (with debug logs)
 def detect_new_articles():
     event = read_github_event()
     if event:
+        log(f"Event keys: {list(event.keys())}")
         if event.get("action") == "new-article-published":
             payload = event.get("client_payload", {})
-            return payload.get("articles", [])
-        elif "commits" in event:  # For push events
+            articles = payload.get("articles", [])
+            log(f"Repository dispatch articles: {articles}")
+            return articles
+        elif "commits" in event:
+            log(f"Number of commits: {len(event['commits'])}")
             added_files = set()
             for commit in event.get("commits", []):
-                for file in commit.get("added", []):
+                added = commit.get("added", [])
+                log(f"Added files in commit {commit.get('id')}: {added}")
+                for file in added:
                     if file.startswith(ARTICLES_DIR + "/") and file.endswith(".html"):
                         added_files.add(file)
             return list(added_files)
+    else:
+        log("No GitHub event found")
     return []
 
 # Parse HTML for title and category
@@ -215,6 +223,7 @@ def post_tweet(tweet_text, image_data=None, alt_text=None):
 # Main function
 def main():
     articles = detect_new_articles()
+    log(f"Detected articles: {articles}")
     if not articles:
         log("No new articles found")
         return
