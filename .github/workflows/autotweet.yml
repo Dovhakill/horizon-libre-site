@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'article/*.html'
-  repository_dispatch:
+  repositor                 xdfdg y_dispatch:
     types: [new-article-published]
 
 jobs:
