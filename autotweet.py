@@ -4,14 +4,11 @@ import json
 import hashlib
 import time
 import subprocess
-from io import BytesIO
-from typing import List, Tuple, Optional
-
 import requests
 import tweepy
 from bs4 import BeautifulSoup
 from PIL import Image
-
+from io import BytesIO
 try:
     import google.generativeai as genai
 except ImportError:
@@ -23,125 +20,92 @@ ARTICLES_DIR = "article"
 MAX_TWEET_LENGTH = 280
 UTM_PARAMS = "?utm_source=twitter&utm_medium=social&utm_campaign=autotweet"
 GEMINI_MODEL_DEFAULT = "gemini-1.5-flash"
-PAUSE_BETWEEN_TWEETS = 10  # seconds
+PAUSE_BETWEEN_TWEETS = 10  # secondes
 EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-MAX_ARTICLES_PER_RUN = 5  # limit per run
+MAX_ARTICLES_PER_RUN = 5  # Limite pour éviter rate limits
 
-HTTP_TIMEOUT = 15
-REQUESTS_HEADERS = {"User-Agent": "horizon-libre-autotweet/1.0"}
-
-def log(message: str) -> None:
+# Logging function
+def log(message):
     print(message, flush=True)
 
-# Dedup memory
-def get_memory_key(article_path: str) -> str:
+# Memory functions for deduplication
+def get_memory_key(article_path):
     return hashlib.sha256(article_path.encode()).hexdigest().lower()
 
-def has_been_seen(key: str, blobs_url: Optional[str], token: Optional[str]) -> bool:
+def has_been_seen(key, blobs_url, token):
     if not blobs_url or not token:
+        log("Mémoire non configurée, continue sans check")
         return False
     try:
-        url = f"{blobs_url.rstrip('/')}/{key}"
-        r = requests.get(url, headers={"X-AURORE-TOKEN": token, **REQUESTS_HEADERS}, timeout=HTTP_TIMEOUT)
-        return r.status_code == 200
+        url = f"{blobs_url}/{key}"
+        response = requests.get(url, headers={"X-AURORE-TOKEN": token})
+        return response.status_code == 200
     except Exception as e:
         log(f"Memory check failed: {e}")
         return False
 
-def mark_as_seen(key: str, blobs_url: Optional[str], token: Optional[str]) -> None:
+def mark_as_seen(key, blobs_url, token):
     if not blobs_url or not token:
         return
     try:
-        url = f"{blobs_url.rstrip('/')}/{key}"
-        requests.put(url, data="1", headers={"X-AURORE-TOKEN": token, **REQUESTS_HEADERS}, timeout=HTTP_TIMEOUT)
+        url = f"{blobs_url}/{key}"
+        requests.put(url, data="1", headers={"X-AURORE-TOKEN": token})
     except Exception as e:
         log(f"Memory mark failed: {e}")
 
 # Read GitHub event
-def read_github_event() -> Optional[dict]:
-    path = os.environ.get("GITHUB_EVENT_PATH")
-    if not path:
-        return None
-    try:
-        with open(path, "r", encoding="utf-8") as f:
+def read_github_event():
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path:
+        with open(event_path, "r") as f:
             return json.load(f)
-    except Exception as e:
-        log(f"Failed to read event file: {e}")
-        return None
-
-def _normalize_articles_list(raw) -> List[str]:
-    # Accept ["article/a.html", ...] or [{"path": "article/a.html"}, ...]
-    paths: List[str] = []
-    if isinstance(raw, list):
-        for it in raw:
-            if isinstance(it, str):
-                paths.append(it)
-            elif isinstance(it, dict) and "path" in it and isinstance(it["path"], str):
-                paths.append(it["path"])
-    return paths
+    return None
 
 # Detect new articles
-def detect_new_articles() -> List[str]:
+def detect_new_articles():
     event = read_github_event()
-    event_name = os.environ.get("GITHUB_EVENT_NAME")
-
-    # repository_dispatch path
-    if event_name == "repository_dispatch" and event and event.get("action") == "new-article-published":
-        payload = event.get("client_payload", {}) or {}
-        arts = _normalize_articles_list(payload.get("articles", []))
-        arts = [a for a in arts if isinstance(a, str) and a.startswith(f"{ARTICLES_DIR}/") and a.endswith(".html")]
-        return arts[:MAX_ARTICLES_PER_RUN]
-
-    # optional: push path (not used if on: push est retiré du workflow)
-    if event_name == "push" and event:
-        before = event.get("before")
-        after = event.get("after")
+    log(f"Événement GitHub : {event}")
+    if event and event.get("action") == "new-article-published":
+        payload = event.get("client_payload", {})
+        articles = payload.get("articles", [])[:MAX_ARTICLES_PER_RUN]
+        log(f"Articles détectés via dispatch: {articles}")
+        return articles
+    else:
         try:
-            if before and after:
-                diff_output = subprocess.check_output(
-                    ["git", "diff", "--diff-filter=A", "--name-only", before, after],
-                    text=True
-                ).splitlines()
-            else:
-                # fallback if before/after not present
-                try:
-                    prev_sha = subprocess.check_output(["git", "rev-parse", "HEAD~1"], text=True).strip()
-                except subprocess.CalledProcessError:
-                    prev_sha = EMPTY_TREE_SHA
-                diff_output = subprocess.check_output(
-                    ["git", "diff", "--diff-filter=A", "--name-only", prev_sha, "HEAD"],
-                    text=True
-                ).splitlines()
-            arts = [f for f in diff_output if f.startswith(f"{ARTICLES_DIR}/") and f.endswith(".html")]
-            return arts[:MAX_ARTICLES_PER_RUN]
+            try:
+                prev_sha = subprocess.check_output(["git", "rev-parse", "HEAD~1"]).decode().strip()
+            except subprocess.CalledProcessError:
+                prev_sha = EMPTY_TREE_SHA
+            diff_output = subprocess.check_output(["git", "diff", "--diff-filter=A", "--name-only", prev_sha, "HEAD"]).decode().splitlines()
+            articles = [f for f in diff_output if f.startswith(ARTICLES_DIR + "/") and f.endswith(".html")][:MAX_ARTICLES_PER_RUN]
+            log(f"Articles détectés via push: {articles}")
+            return articles
         except Exception as e:
             log(f"Git diff failed: {e}")
             return []
 
-    # default: nothing
-    return []
-
-# Parse HTML
-def parse_article(article_path: str) -> Tuple[Optional[str], Optional[str], Optional[BeautifulSoup]]:
+# Parse HTML for title and category
+def parse_article(article_path):
     try:
         with open(article_path, "r", encoding="utf-8") as f:
-            html = f.read()
-        soup = BeautifulSoup(html, "html.parser")
-        title = soup.title.string.strip() if soup.title and soup.title.string else "Untitled"
+            soup = BeautifulSoup(f.read(), "html.parser")
+        title = soup.title.string.strip() if soup.title else "Untitled"
         category = None
         meta_section = soup.find("meta", {"property": "article:section"})
-        if meta_section and meta_section.get("content"):
+        if meta_section:
             category = meta_section["content"].strip()
         else:
             meta_category = soup.find("meta", {"name": "category"})
-            if meta_category and meta_category.get("content"):
+            if meta_category:
                 category = meta_category["content"].strip()
-        return title, category, soup
+        log(f"Titre extrait: {title}, Catégorie: {category}")
+        return title, category
     except Exception as e:
         log(f"Parsing failed for {article_path}: {e}")
-        return None, None, None
+        return None, None
 
-def generate_hashtags(title: Optional[str], category: Optional[str]) -> str:
+# Generate hashtags
+def generate_hashtags(title, category):
     hashtags = ["#HorizonLibre"]
     if category:
         hashtags.append(f"#{category.replace(' ', '').lower()}")
@@ -149,158 +113,124 @@ def generate_hashtags(title: Optional[str], category: Optional[str]) -> str:
         words = title.split()
         if words:
             hashtags.append(f"#{words[0].lower()}")
-    # Max 2 tags
-    tags = list(dict.fromkeys(hashtags))[:2]
-    return " ".join(tags)
+    return " ".join(set(hashtags[:2]))
 
-def _is_truthy_env(name: str) -> bool:
-    val = os.environ.get(name, "")
-    return str(val).strip().lower() in ("1", "true", "yes", "on")
+# Append UTM if enabled
+def append_utm(url):
+    if os.environ.get("ENABLE_UTM"):
+        return url + UTM_PARAMS
+    return url
 
-def append_utm(url: str) -> str:
-    return url + UTM_PARAMS if _is_truthy_env("ENABLE_UTM") else url
+# Safe trim to max length
+def safe_trim(text, max_len=MAX_TWEET_LENGTH):
+    if len(text) <= max_len:
+        return text
+    return text[:max_len - 3] + "..."
 
-def safe_trim(text: str, max_len: int = MAX_TWEET_LENGTH) -> str:
-    return text if len(text) <= max_len else (text[: max_len - 3] + "...")
-
-def generate_alt_text(image_data: Optional[bytes], gemini_api_key: Optional[str], gemini_model: str) -> str:
-    if not image_data:
-        return "Image from article"
+# Generate alt text
+def generate_alt_text(image_data, gemini_api_key, gemini_model):
     if gemini_api_key and genai:
         try:
             genai.configure(api_key=gemini_api_key)
             model = genai.GenerativeModel(gemini_model)
-            resp = model.generate_content(["Describe this image briefly for accessibility.", image_data])
-            alt = (resp.text or "").strip()[:1000]
+            response = model.generate_content(["Describe this image briefly for accessibility.", image_data])
+            alt = response.text.strip()[:1000]
             return alt if alt else "Image from article"
         except Exception as e:
             log(f"Gemini failed: {e}")
     return "Image from article"
 
-def _read_local_image_bytes(article_path: str, img_url: str) -> Optional[bytes]:
-    # Handle absolute site path (/images/x.jpg) vs relative (x.jpg or ./x.jpg or subdir/x.jpg)
-    if img_url.startswith("/"):
-        local_rel = img_url.lstrip("/")  # path relative to repo root
-    else:
-        local_rel = os.path.normpath(os.path.join(os.path.dirname(article_path), img_url))
-    if not os.path.exists(local_rel):
-        log(f"Local image not found: {local_rel}")
-        return None
-    try:
-        with open(local_rel, "rb") as f:
-            return f.read()
-    except Exception as e:
-        log(f"Failed to read local image {local_rel}: {e}")
-        return None
-
-def find_and_prepare_image(article_path: str, soup: BeautifulSoup) -> Tuple[Optional[bytes], Optional[str]]:
+# Find and prepare image
+def find_and_prepare_image(article_path, soup):
     try:
         img_url = None
         alt = None
-
         og_image = soup.find("meta", {"property": "og:image"})
-        if og_image and og_image.get("content"):
-            img_url = og_image["content"].strip()
-        elif (tw := soup.find("meta", {"name": "twitter:image"})) and tw.get("content"):
-            img_url = tw["content"].strip()
-        elif (ln := soup.find("link", {"rel": "image_src"})) and ln.get("href"):
-            img_url = ln["href"].strip()
+        if og_image:
+            img_url = og_image["content"]
         else:
-            article_tag = soup.find("article")
-            if article_tag:
-                img_tag = article_tag.find("img")
-                if img_tag and img_tag.get("src"):
-                    img_url = img_tag["src"].strip()
-                    if img_tag.get("alt"):
-                        alt = img_tag["alt"].strip()
-                    else:
-                        fig = img_tag.find_parent("figure")
-                        if fig:
-                            cap = fig.find("figcaption")
-                            if cap and cap.text:
-                                alt = cap.text.strip()
-
+            twitter_image = soup.find("meta", {"name": "twitter:image"})
+            if twitter_image:
+                img_url = twitter_image["content"]
+            else:
+                image_src = soup.find("link", {"rel": "image_src"})
+                if image_src:
+                    img_url = image_src["href"]
+                else:
+                    article_tag = soup.find("article")
+                    if article_tag:
+                        img_tag = article_tag.find("img")
+                        if img_tag:
+                            img_url = img_tag["src"]
+                            alt = img_tag.get("alt") or (img_tag.find_parent("figure").find("figcaption").text.strip() if img_tag.find_parent("figure") else None)
         if not img_url:
             return None, None
 
-        if img_url.startswith("http://") or img_url.startswith("https://"):
-            r = requests.get(img_url, headers=REQUESTS_HEADERS, timeout=HTTP_TIMEOUT)
-            r.raise_for_status()
-            img_data = r.content
+        if not img_url.startswith("http"):
+            img_url = os.path.join(os.path.dirname(article_path), img_url)
+            with open(img_url, "rb") as f:
+                img_data = f.read()
         else:
-            img_data = _read_local_image_bytes(article_path, img_url)
-            if not img_data:
-                return None, None
+            response = requests.get(img_url)
+            img_data = response.content
 
-        img = Image.open(BytesIO(img_data)).convert("RGB")
-
-        # Resize if too large
+        img = Image.open(BytesIO(img_data))
+        img = img.convert("RGB")
         max_size = 4096
         if img.width > max_size or img.height > max_size:
             ratio = min(max_size / img.width, max_size / img.height)
             img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS)
-
-        # Compress until under ~4.8MB or quality 50
         quality = 95
         while True:
             buffer = BytesIO()
             img.save(buffer, format="JPEG", progressive=True, quality=quality)
             size = buffer.tell()
-            if size <= int(4.8 * 1024 * 1024) or quality <= 50:
+            if size <= 4.8 * 1024 * 1024 or quality <= 50:
                 break
             quality -= 5
-
         return buffer.getvalue(), alt
     except Exception as e:
         log(f"Image processing failed: {e}")
         return None, None
 
-def build_tweet_text(title: str, hashtags: str, article_url: str) -> str:
+# Build tweet text
+def build_tweet_text(title, hashtags, article_url):
     base = f"Nouvel article: {title}"
     tweet = f"{base} {hashtags} {article_url}"
     return safe_trim(tweet)
 
-def post_tweet(tweet_text: str, image_data: Optional[bytes] = None, alt_text: Optional[str] = None) -> None:
+# Post tweet
+def post_tweet(tweet_text, image_data=None, alt_text=None):
     try:
         consumer_key = os.environ["X_API_KEY"]
         consumer_secret = os.environ["X_API_SECRET"]
         access_token = os.environ["X_ACCESS_TOKEN"]
         access_token_secret = os.environ["X_ACCESS_TOKEN_SECRET"]
 
-        # v1.1 for media upload
         auth = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, access_token, access_token_secret)
-        api_v1 = tweepy.API(auth)
+        api = tweepy.API(auth)
 
-        # v2 for posting tweet
-        client = tweepy.Client(
-            consumer_key=consumer_key,
-            consumer_secret=consumer_secret,
-            access_token=access_token,
-            access_token_secret=access_token_secret,
-        )
+        client = tweepy.Client(consumer_key=consumer_key, consumer_secret=consumer_secret,
+                               access_token=access_token, access_token_secret=access_token_secret)
 
         media_ids = None
         if image_data:
-            media = api_v1.media_upload(filename="image.jpg", file=BytesIO(image_data))
+            media = api.media_upload(filename="image.jpg", file=BytesIO(image_data))
             media_ids = [media.media_id]
             if alt_text:
-                try:
-                    api_v1.create_media_metadata(media.media_id, alt_text)
-                except Exception as e:
-                    log(f"Alt text set failed: {e}")
+                api.create_media_metadata(media.media_id, alt_text)
 
         client.create_tweet(text=tweet_text, media_ids=media_ids)
         log("Tweet posted successfully")
     except Exception as e:
         log(f"Tweet posting failed: {e}")
 
-def main() -> None:
+# Main function
+def main():
     articles = detect_new_articles()
     if not articles:
         log("No new articles found")
         return
-
-    log(f"Articles to process: {articles}")
 
     blobs_url = os.environ.get("BLOBS_PROXY_URL")
     aurore_token = os.environ.get("AURORE_BLOBS_TOKEN")
@@ -313,19 +243,23 @@ def main() -> None:
             log(f"Skipping duplicate: {article_path}")
             continue
 
-        title, category, soup = parse_article(article_path)
-        if not title or not soup:
+        title, category = parse_article(article_path)
+        if not title:
             log(f"Skipping invalid article: {article_path}")
             continue
+
+        with open(article_path, "r", encoding="utf-8") as f:
+            soup = BeautifulSoup(f.read(), "html.parser")
 
         hashtags = generate_hashtags(title, category)
         article_url = append_utm(f"{SITE_URL}/{article_path}")
         tweet_text = build_tweet_text(title, hashtags, article_url)
 
         image_data, html_alt = find_and_prepare_image(article_path, soup)
-        alt_text = html_alt if html_alt else (generate_alt_text(image_data, gemini_api_key, gemini_model) if image_data else None)
+        alt_text = html_alt if html_alt else generate_alt_text(image_data, gemini_api_key, gemini_model) if image_data else None
 
         post_tweet(tweet_text, image_data, alt_text)
+
         mark_as_seen(key, blobs_url, aurore_token)
 
         if idx < len(articles) - 1:
