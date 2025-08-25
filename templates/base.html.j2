@@ -1,23 +1,23 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-g">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}L'Horizon Libre{% endblock %}</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23B91C1C' stroke='%23111827' stroke-width='2'/%3E%3Cg transform='translate(50, 50) scale(0.65) translate(-55, -55)'%3E%3Cpath d='M 10 85 Q 55 100 85 25 Q 70 50 50 55 Q 25 75 10 85 Z' fill='white'/%3E%3Cpath d='M 78 32 Q 95 25 95 15 L 85 25 Z' fill='%231E40AF'/%3E%3C/g%3E%3C/svg%3E">
-    {% block meta %}{% endblock %}
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/feather-icons"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .article-card-img { height: 12rem; width: 100%; object-fit: cover; }
-        .article-featured-image { max-height: 500px; width: 100%; object-fit: cover; margin: auto; border-radius: 0.5rem; }
-        #search-results { max-height: 300px; overflow-y: auto; }
-    </style>
-</head>
-<body class="bg-gray-50 text-gray-800">
+    
+    <meta name="google-adsense-account" content="ca-pub-2739433982231142">
+
+    <title>{% block title %}Horizon Libre{% endblock %}</title>
+
+    {% if meta %}
+    <meta name="description" content="{{ meta.description }}">
+    {% endif %}
+
+    <link rel="stylesheet" href="/style.css">
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2739433982231142"
+     crossorigin="anonymous"></script>
+
+</head><body class="bg-gray-50 text-gray-800">
     <header class="bg-white shadow-sm sticky top-0 z-50">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-2">
