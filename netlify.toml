@@ -1,11 +1,12 @@
+# On dit à Netlify de ne lancer AUCUNE commande de build.
+# Le bot a déjà fait tout le travail en amont.
 [build]
-  # 1. Installe les outils Python nécessaires
-  # 2. Exécute notre script qui génère la page d'accueil
-  command = "pip install -r requirements.txt && python build.py"
-  
-  # Le dossier final que Netlify doit publier
-  publish = "public"
+  command = ""
 
+# On dit à Netlify que le site à publier se trouve à la racine du dépôt.
+[build.settings]
+  publish = "/"
+
+# On garde la version de Python au cas où nous ajouterions des fonctions serverless.
 [build.environment]
-  # On dit à Netlify d'utiliser une version récente de Python
   PYTHON_VERSION = "3.11"
