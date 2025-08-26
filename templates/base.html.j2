@@ -3,31 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"></script> <meta name="google-adsense-account" content="ca-pub-2739433982231142">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <meta name="github-token" content="{{ env.VITE_GITHUB_TOKEN }}">
+
+    <meta name="google-adsense-account" content="ca-pub-2739433982231142">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2739433982231142" crossorigin="anonymous"></script>
 
     <title>{% block title %}Horizon Libre{% endblock %}</title>
-
-    {% if meta %}
-    <meta name="description" content="{{ meta.description }}">
-    {% endif %}
-
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2739433982231142"
-     crossorigin="anonymous"></script>
+    {% if meta %}<meta name="description" content="{{ meta.description }}">{% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 </head>
 
 <body class="bg-gray-100 text-gray-800">
 
-    <header class="bg-white shadow-md">
+    <header class="bg-white shadow-sm">
         <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="text-2xl font-bold text-blue-800">
-                <a href="/">LOGO Horizon</a> 
-            </div>
+            <a href="/"><img src="/logo-libre.png" alt="Horizon Libre" class="h-10 w-auto"></a>
             <div>
                 <a href="/" class="px-4">Accueil</a>
                 <a href="/a-propos.html" class="px-4">À Propos</a>
-                </div>
+            </div>
         </nav>
     </header>
 
@@ -42,7 +39,7 @@
                 <a href="/mentions-legales.html" class="px-3 text-sm">Mentions Légales</a>
                 <a href="/politique-confidentialite.html" class="px-3 text-sm">Politique de Confidentialité</a>
                 <a href="https://x.com/MediaHorizonL" target="_blank" class="px-3 text-sm">Suivez-nous sur X</a>
-                </div>
+            </div>
         </div>
     </footer>
 
